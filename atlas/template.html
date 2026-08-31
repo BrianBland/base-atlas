@@ -13,6 +13,11 @@
   --face-screen:#B9CED0; --side-screen:#A4B9BB;
   --face-gate:#D0C4CC; --side-gate:#BBAFB7;
   --face-job:#D4C9B4; --side-job:#BFB49F;
+  --hull-rpc:rgba(72,88,104,.16); --hull-rpc-ink:#3E4E5C;
+  --hull-seq:rgba(176,112,64,.18); --hull-seq-ink:#8B531F;
+  --hull-batcher:rgba(196,156,48,.26); --hull-batcher-ink:#8F7420;
+  --hull-proposer:rgba(72,108,156,.26); --hull-proposer-ink:#3D5C86;
+  --hull-challenger:rgba(148,84,116,.26); --hull-challenger-ink:#7A4560;
   --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme: dark){
@@ -27,6 +32,11 @@
     --face-screen:#283234; --side-screen:#21292A;
     --face-gate:#342C32; --side-gate:#2A2429;
     --face-job:#343024; --side-job:#2A271E;
+    --hull-rpc:rgba(120,140,160,.16); --hull-rpc-ink:#A8B8C8;
+    --hull-seq:rgba(200,140,88,.18); --hull-seq-ink:#E0A070;
+    --hull-batcher:rgba(214,178,70,.28); --hull-batcher-ink:#D4B85A;
+    --hull-proposer:rgba(100,140,190,.28); --hull-proposer-ink:#8AA8D0;
+    --hull-challenger:rgba(176,110,148,.28); --hull-challenger-ink:#C490B0;
   }
 }
 :root[data-theme="dark"]{
@@ -40,6 +50,11 @@
   --face-screen:#283234; --side-screen:#21292A;
   --face-gate:#342C32; --side-gate:#2A2429;
   --face-job:#343024; --side-job:#2A271E;
+  --hull-rpc:rgba(120,140,160,.16); --hull-rpc-ink:#A8B8C8;
+  --hull-seq:rgba(200,140,88,.18); --hull-seq-ink:#E0A070;
+  --hull-batcher:rgba(214,178,70,.28); --hull-batcher-ink:#D4B85A;
+  --hull-proposer:rgba(100,140,190,.28); --hull-proposer-ink:#8AA8D0;
+  --hull-challenger:rgba(176,110,148,.28); --hull-challenger-ink:#C490B0;
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
@@ -88,6 +103,10 @@ button.ctl:disabled{opacity:.4;cursor:default;box-shadow:none}
 #rail .ch:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
 #rail .title{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);margin-left:6px}
 #rail .title b{color:var(--ink);font-weight:500}
+#rail .home{font:inherit;font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:var(--paper);border:1.5px solid var(--ink);color:var(--ink);padding:3px 8px;cursor:pointer}
+#rail .home.on{background:var(--hi-bg);color:var(--hi-fg)}
+#index h4.rh{display:flex;align-items:center;gap:6px}
+#index h4.rh .dot{width:8px;height:8px;border:1px solid var(--ink);flex:none}
 #flowSel{position:absolute;left:12px;bottom:12px;display:none;gap:6px}
 #flowSel button{font:inherit;font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:var(--paper);border:1.5px solid var(--ink);color:var(--ink);padding:3px 8px;cursor:pointer}
 #flowSel button.on{background:var(--hi-bg);color:var(--hi-fg)}
@@ -136,6 +155,12 @@ details > *:not(summary){margin-top:8px}
 .q li.to>span{text-decoration:none}
 .q .ans{margin-top:2px;padding-left:10px;border-left:1.5px solid var(--ink)}
 .node.is-hover .hover-ring{opacity:1}
+.node.is-sel polygon:not(.hover-ring):not(.halo):not(.sel-fill){stroke-width:2}
+.node .sel-fill{opacity:0}
+.node.is-sel .sel-fill{opacity:.12}
+.node.is-sel .halo{opacity:0;animation:none}
+.node.is-sel .chip-bg,.nlab.is-sel rect{fill:var(--hi-bg)}
+.node.is-sel .chip-tx,.nlab.is-sel text{fill:var(--hi-fg)}
 @keyframes halo{0%{opacity:.9}50%{opacity:.25}100%{opacity:.9}}
 .halo{animation:halo 1.6s ease-in-out infinite}
 @media (prefers-reduced-motion: reduce){.halo{animation:none}}
@@ -172,13 +197,12 @@ details > *:not(summary){margin-top:8px}
       <div id="tabs">
         <button data-tab="what" class="on">What it does</button>
         <button data-tab="how">How it's built</button>
-        <button data-tab="cond">Open questions</button>
       </div>
       <div id="body"></div>
     </aside>
   </div>
   <div id="hint">
-    <span>enter / ] next chapter</span><span>[ back</span><span>hover to read</span><span>click to pin</span><span>→ go inside</span><span>← come out</span><span>click a dot to inspect its packet</span>
+    <span>network overview is home</span><span>chapters stay on the rail</span><span>click a role for its components</span><span>sequencer wraps rpc</span><span>hover to read</span><span>click to pin</span><span>click a dot to inspect its packet</span>
   </div>
 </div>
 
@@ -191,38 +215,139 @@ const TW=72, TH=36;
 function P(gx,gy,z=0){ return [(gx-gy)*TW/2, (gx+gy)*TH/2 - z]; }
 function pts(a){ return a.map(p=>p.join(',')).join(' '); }
 const byId = Object.fromEntries(NODES.map(n=>[n.id,n]));
+const roles = typeof ROLES==='undefined'?[]:ROLES;
+const roleById = Object.fromEntries(roles.map(r=>[r.id,r]));
 const center = n => [n.gx+n.w/2, n.gy+n.d/2];
+function hopEnd(id){ return sceneNodes.find(x=>x.id===id)||null; }
+function roleNode(r){
+  return {id:'role:'+r.id,code:r.code,name:r.name,short:r.short,gx:r.gx,gy:r.gy,w:r.w,d:r.d,h:r.h,kind:r.kind,one:r.one,what:r.what,how:r.how,isRole:true,roleId:r.id};
+}
+function surroundNode(n){
+  const p=n.net||n;
+  return {...n,gx:p.gx,gy:p.gy,w:p.w??n.w,d:p.d??n.d,h:p.h??n.h};
+}
+function roleOwns(roleId, id){
+  const r=roleById[roleId]; if(!r) return false;
+  return (r.components||[]).includes(id);
+}
+const HULL_PAD=0.55, HULL_RIM=0.45;
+function padHull(ns, pad=HULL_PAD){
+  if(!ns.length) return null;
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  ns.forEach(n=>{x0=Math.min(x0,n.gx-pad);y0=Math.min(y0,n.gy-pad);x1=Math.max(x1,n.gx+n.w+pad);y1=Math.max(y1,n.gy+n.d+pad);});
+  return [[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+}
+function roleOwnNodes(r){ return sceneNodes.filter(n=>(r.components||[]).includes(n.id)); }
+function roleOwnedNodes(r){
+  const ids=new Set(r.components||[]);
+  (r.contains||[]).forEach(cid=>{ (roleById[cid]?.components||[]).forEach(id=>ids.add(id)); });
+  return sceneNodes.filter(n=>ids.has(n.id));
+}
+function polyPath(poly){ return 'M'+poly.map(p=>P(p[0],p[1],0).join(',')).join('L')+'Z'; }
 const NS='http://www.w3.org/2000/svg';
 const el=(t,a={},...kids)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);kids.forEach(k=>e.appendChild(k));return e;};
-const qOpen=n=>(n.cond||[]).filter(c=>!c.r&&!c.to).length; const qHtml=list=>`<ul class="q">${list.map(c=>c.r?`<li class="res"><span>${c.q}</span><div class="ans">✓ ${c.r}</div></li>`:c.to?`<li class="to"><span>${c.q}</span><div class="ans">→ ${c.to}</div></li>`:`<li>${c.q}</li>`).join('')}</ul>`;
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
 /* ---------------- STATE ---------------- */
-const S = { ch:0, view:'world', inside:null, selected:null, hover:null, tab:'what', playing:true, tx:0, ty:0, k:1, packets:[], selPacket:null, hoverPacket:null, flowSel:(typeof FLOWS!=='undefined'&&FLOWS[0]?FLOWS[0].id:'turn'), maxCh:0 };
+const S = { ch:0, view:'network', inside:null, selected:null, hover:null, tab:'what', playing:true, tx:0, ty:0, k:1, packets:[], selPacket:null, hoverPacket:null, flowSel:(typeof FLOWS!=='undefined'&&FLOWS[0]?FLOWS[0].id:'turn'), maxCh:0 };
 const svg=document.getElementById('svg'), world=document.getElementById('world'), tip=document.getElementById('tip'), body=document.getElementById('body');
 let sceneNodes=[], sceneHops=[];
 const revealedIds=()=>{ if(S.ch>=CH.length-1) return NODES.map(n=>n.id); const s=new Set(); for(let i=0;i<=S.ch;i++) CH[i].reveal.forEach(id=>s.add(id)); return [...s]; };
-const isNew=id=>S.ch<CH.length-1 && CH[S.ch].reveal.includes(id);
+const isNew=id=>S.view==='world'&&S.ch<CH.length-1 && CH[S.ch].reveal.includes(id);
 const revealChapterOf=id=>{ for(let i=0;i<CH.length-1;i++) if(CH[i].reveal.includes(id)) return i; return CH.length-1; };
 
 /* ---------------- SCENES ---------------- */
+function buildScene(){
+  if(S.view==='network') return buildNetworkScene();
+  if(S.view==='inside') return;
+  return buildWorldScene();
+}
+function buildNetworkScene(){
+  sceneNodes=[...roles.map(roleNode), ...NODES.filter(n=>n.surround).map(surroundNode)];
+  sceneHops=[];
+  (typeof NETWORK_HOPS==='undefined'?[]:NETWORK_HOPS).forEach((h,i)=>sceneHops.push({flow:'net',idx:i,from:h[0],to:h[1],label:h[2],payload:h[3],bend:h[4]||(i%2?'yx':'xy')}));
+}
 function buildWorldScene(){
-  const ids=new Set(revealedIds()); sceneNodes=NODES.filter(n=>ids.has(n.id)); sceneHops=[];
+  const ids=new Set(revealedIds());
+  sceneNodes=NODES.filter(n=>ids.has(n.id));
+  sceneHops=[];
+  const vis=new Set(sceneNodes.map(n=>n.id));
+  const keep=h=>vis.has(h[0])&&vis.has(h[1]);
   const c=CH[S.ch];
-  if(c.flow){ c.flow.forEach((h,i)=>{ let bend=bendFor(h[0],h[1]); const rev=c.flow.findIndex(x=>x[0]===h[1]&&x[1]===h[0]); if(rev>-1&&rev<i) bend=bend==='xy'?'yx':'xy'; sceneHops.push({flow:'ch',idx:i,from:h[0],to:h[1],label:h[2],payload:h[3],bend}); }); }
-  else { FLOWS.forEach(f=>{ if(S.flowSel!=='both'&&f.id!==S.flowSel)return; f.hops.forEach((h,i)=>sceneHops.push({flow:f.id,idx:i,from:h[0],to:h[1],label:h[2],payload:h[3],bend:h[4]||'xy'})); }); }
+  if(c.flow){ c.flow.filter(keep).forEach((h,i)=>{ let bend=bendFor(h[0],h[1]); const rev=c.flow.findIndex(x=>x[0]===h[1]&&x[1]===h[0]); if(rev>-1&&rev<i) bend=bend==='xy'?'yx':'xy'; sceneHops.push({flow:'ch',idx:i,from:h[0],to:h[1],label:h[2],payload:h[3],bend}); }); }
+  else { FLOWS.forEach(f=>{ if(S.flowSel!=='both'&&f.id!==S.flowSel)return; f.hops.filter(keep).forEach((h,i)=>sceneHops.push({flow:f.id,idx:i,from:h[0],to:h[1],label:h[2],payload:h[3],bend:h[4]||'xy'})); }); }
 }
 function bendFor(a,b){ const t=FLOWS[0].hops.find(h=>h[0]===a&&h[1]===b)||FLOWS[1].hops.find(h=>h[0]===a&&h[1]===b); return t?(t[4]||'xy'):'yx'; }
 function buildInsideScene(n){
-  const steps=n.steps||[]; sceneNodes=steps.map((s,i)=>({id:'s'+i,code:String(i+1),name:s[0],short:s[0],desc:s[1],gx:2+i*3.4,gy:2+i*0.6,w:2,d:2,h:34,inside:true}));
+  if(n.members&&n.members.length){
+    sceneNodes=n.members.map(m=>({...m,inside:true,group:n.group}));
+    sceneHops=[];
+    (n.insideFlow||[]).forEach((h,i)=>{ sceneHops.push({flow:'inside',idx:i,from:h[0],to:h[1],label:h[2],payload:h[3],bend:h[4]||(i%2?'yx':'xy')}); });
+    return;
+  }
+  const steps=n.steps||[]; sceneNodes=steps.map((s,i)=>({id:'s'+i,code:String(i+1),name:s[0],short:s[0],desc:s[1],gx:2+i*3.4,gy:2+i*0.6,w:2,d:2,h:34,inside:true,step:true}));
   sceneHops=[]; for(let i=0;i<steps.length-1;i++) sceneHops.push({flow:'inside',idx:i,from:'s'+i,to:'s'+(i+1),label:steps[i][0]+' → '+steps[i+1][0],payload:{step:i+1,handsOff:steps[i+1][0]},bend:'xy'});
 }
 function hopPath(h){
-  const A=sceneNodes.find(n=>n.id===h.from), B=sceneNodes.find(n=>n.id===h.to); if(!A||!B) return null;
-  const [ax,ay]=center(A), [bx,by]=center(B); const mid = h.bend==='xy' ? [bx,ay] : [ax,by];
-  const g=[[ax,ay],mid,[bx,by]].filter((p,i,arr)=>i===0||p[0]!==arr[i-1][0]||p[1]!==arr[i-1][1]);
-  const scr=g.map(p=>P(p[0],p[1],0)); let len=0; const seg=[]; for(let i=1;i<scr.length;i++){const l=Math.hypot(scr[i][0]-scr[i-1][0],scr[i][1]-scr[i-1][1]);seg.push(l);len+=l;}
-  return {grid:g,scr,seg,len};
+  const A=hopEnd(h.from), B=hopEnd(h.to); if(!A||!B) return null;
+  const [ax,ay]=center(A), [bx,by]=center(B);
+  const finish=g=>{
+    const grid=g.filter((p,i,arr)=>i===0||p[0]!==arr[i-1][0]||p[1]!==arr[i-1][1]);
+    const scr=grid.map(p=>P(p[0],p[1],0)); let len=0; const seg=[];
+    for(let i=1;i<scr.length;i++){const l=Math.hypot(scr[i][0]-scr[i-1][0],scr[i][1]-scr[i-1][1]);seg.push(l);len+=l;}
+    return {grid,scr,seg,len};
+  };
+  if(Array.isArray(h.bend)) return finish([[ax,ay],...h.bend,[bx,by]]);
+  return finish(routeOrtho(A,B,h.bend));
+}
+function nodeFoot(n,pad=0){ return {x0:n.gx-pad,y0:n.gy-pad,x1:n.gx+n.w+pad,y1:n.gy+n.d+pad}; }
+function segHits(a,b,r){
+  const eps=0.04;
+  if(Math.abs(a[0]-b[0])<eps){
+    const x=a[0], y0=Math.min(a[1],b[1]), y1=Math.max(a[1],b[1]);
+    return x>r.x0+eps && x<r.x1-eps && y1>r.y0+eps && y0<r.y1-eps;
+  }
+  if(Math.abs(a[1]-b[1])<eps){
+    const y=a[1], x0=Math.min(a[0],b[0]), x1=Math.max(a[0],b[0]);
+    return y>r.y0+eps && y<r.y1-eps && x1>r.x0+eps && x0<r.x1-eps;
+  }
+  return false;
+}
+function pathHits(pts, skip){
+  const blocks=sceneNodes.filter(n=>!skip.has(n.id)&&!n.inside&&!n.step);
+  let n=0;
+  for(let i=0;i<pts.length-1;i++) for(const b of blocks) if(segHits(pts[i],pts[i+1],nodeFoot(b))) n++;
+  return n;
+}
+function pathLen(pts){ let n=0; for(let i=1;i<pts.length;i++) n+=Math.abs(pts[i][0]-pts[i-1][0])+Math.abs(pts[i][1]-pts[i-1][1]); return n; }
+function routeOrtho(A,B,prefer){
+  const [ax,ay]=center(A), [bx,by]=center(B);
+  const skip=new Set([A.id,B.id]);
+  const cands=[];
+  const add=pts=>{ const p=pts.filter((q,i,arr)=>i===0||q[0]!==arr[i-1][0]||q[1]!==arr[i-1][1]); cands.push(p); };
+  add([[ax,ay],[bx,ay],[bx,by]]);
+  add([[ax,ay],[ax,by],[bx,by]]);
+  const m=3.2, xLo=Math.min(ax,bx)-m, xHi=Math.max(ax,bx)+m, yLo=Math.min(ay,by)-m, yHi=Math.max(ay,by)+m;
+  const xs=new Set([ax,bx,(ax+bx)/2]), ys=new Set([ay,by,(ay+by)/2]);
+  sceneNodes.forEach(n=>{
+    if(skip.has(n.id)||n.inside||n.step) return;
+    const g=0.4;
+    [n.gx-g, n.gx+n.w+g].forEach(x=>{ if(x>=xLo&&x<=xHi) xs.add(x); });
+    [n.gy-g, n.gy+n.d+g].forEach(y=>{ if(y>=yLo&&y<=yHi) ys.add(y); });
+  });
+  const XL=[...xs], YL=[...ys];
+  XL.forEach(x=>add([[ax,ay],[x,ay],[x,by],[bx,by]]));
+  YL.forEach(y=>add([[ax,ay],[ax,y],[bx,y],[bx,by]]));
+  XL.forEach(x=>YL.forEach(y=>{
+    add([[ax,ay],[x,ay],[x,y],[bx,y],[bx,by]]);
+    add([[ax,ay],[ax,y],[x,y],[x,by],[bx,by]]);
+  }));
+  const score=p=>({hits:pathHits(p,skip), corners:p.length, len:pathLen(p), prefer:(prefer==='xy'&&p.length===3&&p[1][0]===bx&&p[1][1]===ay)||(prefer==='yx'&&p.length===3&&p[1][0]===ax&&p[1][1]===by)?0:1});
+  cands.sort((a,b)=>{
+    const sa=score(a), sb=score(b);
+    return sa.hits-sb.hits || sa.prefer-sb.prefer || sa.corners-sb.corners || sa.len-sb.len;
+  });
+  return cands[0]||[[ax,ay],[bx,by]];
 }
 function pointAt(path,t){ let d=t*path.len; for(let i=0;i<path.seg.length;i++){ if(d<=path.seg[i]||i===path.seg.length-1){const u=path.seg[i]?Math.min(1,d/path.seg[i]):1;const a=path.scr[i],b=path.scr[i+1];return [a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u];} d-=path.seg[i]; } return path.scr[0]; }
 
@@ -232,34 +357,98 @@ function render(){
   const gg=el('g',{opacity:.55}); const R=[-4,26];
   for(let i=R[0];i<=R[1];i+=2){ const a=P(i,R[0]),b=P(i,R[1]);gg.appendChild(el('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'var(--grid)','stroke-width':.6})); const c=P(R[0],i),d=P(R[1],i);gg.appendChild(el('line',{x1:c[0],y1:c[1],x2:d[0],y2:d[1],stroke:'var(--grid)','stroke-width':.6})); }
   world.appendChild(gg);
-  if(S.view==='world'&&S.ch>=CH.length-1){
-    const plate=(x0,y0,x1,y1,dash)=>{const p=el('polygon',{points:pts([P(x0,y0),P(x1,y0),P(x1,y1),P(x0,y1)]),fill:'none',stroke:'var(--ink)','stroke-width':.9,opacity:.5});if(dash)p.setAttribute('stroke-dasharray','5 4');return p;};
-    world.appendChild(plate(0.5,1.5,17,10.5,false)); world.appendChild(plate(2,9,17.5,16.5,false)); world.appendChild(plate(-2,-2,24,17.5,true));
-  }
+  const showHulls=S.view==='network'||(S.view==='world'&&S.ch>=CH.length-1);
+  if(showHulls) drawRoleHulls();
   const hg=el('g'); world.appendChild(hg);
+  const mainFlow=f=>f==='turn'||f==='ch'||f==='inside'||f==='net';
   sceneHops.forEach(h=>{ h.path=hopPath(h); if(!h.path)return; const ghost=byId[h.from]?.ghost||byId[h.to]?.ghost;
-    const pl=el('polyline',{points:pts(h.path.scr),fill:'none',stroke:'var(--ink)','stroke-width':h.flow!=='turn'&&h.flow!=='ch'&&h.flow!=='inside'?1:1.4,opacity:(h.flow!=='turn'&&h.flow!=='ch'&&h.flow!=='inside')||ghost?.7:1});
-    if((h.flow!=='turn'&&h.flow!=='ch'&&h.flow!=='inside')||ghost)pl.setAttribute('stroke-dasharray','3 3'); hg.appendChild(pl);
+    const pl=el('polyline',{points:pts(h.path.scr),fill:'none',stroke:'var(--ink)','stroke-width':mainFlow(h.flow)?1.4:1,opacity:mainFlow(h.flow)&&!ghost?1:.7});
+    if(!mainFlow(h.flow)||ghost)pl.setAttribute('stroke-dasharray','3 3'); hg.appendChild(pl);
     h.path.scr.slice(1,-1).forEach(p=>hg.appendChild(el('polygon',{points:pts([[p[0],p[1]-3.5],[p[0]+3.5,p[1]],[p[0],p[1]+3.5],[p[0]-3.5,p[1]]]),fill:'var(--ink)'})));
   });
   const ng=el('g'); world.appendChild(ng);
   [...sceneNodes].sort((a,b)=>(a.gx+a.gy+a.w+a.d)-(b.gx+b.gy+b.w+b.d)).forEach(n=>ng.appendChild(drawNode(n)));
   const lg=el('g'); world.appendChild(lg); sceneNodes.forEach(n=>lg.appendChild(drawLabel(n)));
+  if(showHulls) drawRoleLabels();
   world.appendChild(el('g',{id:'pkts'})); drawPackets(); renderRail();
 }
 function drawLabel(n){
-  const g=el('g',{style:'pointer-events:none'});
+  const g=el('g',{class:'nlab'+(S.selected===n.id?' is-sel':''),style:'cursor:pointer','data-id':n.id});
   const b=P(n.gx+n.w, n.gy+n.d, 0); const txt=(n.short||n.name).toUpperCase(); const w=txt.length*6.6+10; const y=b[1]+9;
   const dim=n.ghost&&!n.inside;
-  g.appendChild(el('rect',{x:b[0]-w/2,y:y,width:w,height:14,fill:S.selected===n.id?'var(--hi-bg)':'var(--paper)',stroke:dim?'var(--ghost)':'var(--ink)','stroke-width':.9,'stroke-dasharray':dim?'3 2':'none'}));
-  const t=el('text',{x:b[0],y:y+10.5,'text-anchor':'middle','font-size':'9','font-family':'var(--mono)','letter-spacing':'.06em',fill:S.selected===n.id?'var(--hi-fg)':(dim?'var(--ink-2)':'var(--ink)'),'font-weight':'500'}); t.textContent=txt; g.appendChild(t);
+  g.appendChild(el('rect',{x:b[0]-w/2,y:y,width:w,height:14,fill:'var(--paper)',stroke:dim?'var(--ghost)':'var(--ink)','stroke-width':.9,'stroke-dasharray':dim?'3 2':'none'}));
+  const t=el('text',{x:b[0],y:y+10.5,'text-anchor':'middle','font-size':'9','font-family':'var(--mono)','letter-spacing':'.06em',fill:dim?'var(--ink-2)':'var(--ink)','font-weight':'500'}); t.textContent=txt; g.appendChild(t);
+  g.addEventListener('pointerenter',e=>{setHover(n.id,e,n);});
+  g.addEventListener('pointerleave',()=>setHover(null));
+  g.addEventListener('click',e=>{e.stopPropagation();select(n.id);});
   return g;
 }
-function kindOf(n){ return n.inside?'box':(n.kind||'box'); }
+function kindOf(n){ return n.kind||'box'; }
 function faceFill(n){ return n.ghost?'none':`var(--face-${kindOf(n)})`; }
 function sideFill(n){ return n.ghost?'none':`var(--side-${kindOf(n)})`; }
 function paintHover(){
   world.querySelectorAll('g.node').forEach(g=>g.classList.toggle('is-hover', g.getAttribute('data-id')===S.hover));
+}
+function paintSelection(){
+  world.querySelectorAll('g.node, g.nlab').forEach(g=>g.classList.toggle('is-sel', g.getAttribute('data-id')===S.selected));
+}
+function drawRoleHulls(){
+  [...roles].sort((a,b)=>(a.layer||0)-(b.layer||0)).forEach(r=>{
+    const poly=roleHullPoly(r); if(!poly) return;
+    const fill=`var(--hull-${r.id})`, ink=`var(--hull-${r.id}-ink)`;
+    const hole=S.view!=='network'&&(r.contains||[]).map(id=>roleHullPoly(roleById[id])).find(Boolean);
+    if(hole){
+      const p=el('path',{d:polyPath(poly)+polyPath(hole),fill,stroke:'none','fill-rule':'evenodd',style:'pointer-events:none;fill-rule:evenodd'});
+      world.appendChild(p);
+    } else {
+      world.appendChild(el('polygon',{points:pts(poly.map(p=>P(p[0],p[1],0))),fill,stroke:'none',style:'pointer-events:none'}));
+    }
+    world.appendChild(el('polygon',{points:pts(poly.map(p=>P(p[0],p[1],0))),fill:'none',stroke:ink,'stroke-width':1.15,style:'pointer-events:none'}));
+  });
+}
+function roleHullPoly(r){
+  if(!r) return null;
+  if(S.view==='network'){
+    const n=sceneNodes.find(x=>x.roleId===r.id);
+    return n?padHull([n],0.7):null;
+  }
+  const own=roleOwnNodes(r);
+  if(r.contains&&r.contains.length){
+    const inner=roleOwnedNodes(r).filter(n=>!(r.components||[]).includes(n.id));
+    const extra=own.length?padHull(own,HULL_PAD+HULL_RIM):null;
+    const nest=inner.length?padHull(inner,HULL_PAD+HULL_RIM):null;
+    if(extra&&nest){
+      const x0=Math.min(extra[0][0],nest[0][0]), y0=Math.min(extra[0][1],nest[0][1]);
+      const x1=Math.max(extra[1][0],nest[1][0]), y1=Math.max(extra[2][1],nest[2][1]);
+      return [[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+    }
+    return extra||nest;
+  }
+  return own.length?padHull(own,HULL_PAD):null;
+}
+function drawRoleLabels(){
+  roles.forEach(r=>{
+    const poly=roleHullPoly(r); if(!poly) return;
+    let x,y;
+    if(r.contains){
+      const extras=roleOwnNodes(r);
+      const x0=Math.min(...poly.map(p=>p[0]));
+      const y0=extras.length?Math.min(...extras.map(n=>n.gy)):Math.min(...poly.map(p=>p[1]));
+      [x,y]=P(x0+0.15,y0,0);
+    } else {
+      const x0=Math.min(...poly.map(p=>p[0])), y0=Math.min(...poly.map(p=>p[1]));
+      [x,y]=P(x0+0.12, y0+0.15, 0);
+    }
+    const t=el('text',{x:x+2,y:y+14,'text-anchor':'start','font-size':'9','font-family':'var(--mono)','letter-spacing':'.18em',fill:`var(--hull-${r.id}-ink)`,style:'pointer-events:none'});
+    t.textContent=r.short; world.appendChild(t);
+  });
+}
+function nodeIdAt(x,y){
+  for(const el of document.elementsFromPoint(x,y)){
+    const g=el.closest?.('g.node, g.nlab');
+    if(g) return g.getAttribute('data-id');
+  }
+  return null;
 }
 function setHover(id, ev, n){
   if(S.hover===id){ if(ev&&n) moveTip(ev); return; }
@@ -269,9 +458,9 @@ function setHover(id, ev, n){
   if(!S.selected && S.selPacket==null) renderPanel();
 }
 function drawNode(n){
-  const g=el('g',{class:'node'+(S.hover===n.id?' is-hover':''),style:'cursor:pointer','data-id':n.id});
-  const {gx,gy,w,d,h}=n; const sel=S.selected===n.id, fresh=!n.inside&&isNew(n.id);
-  const sw=sel?2:1.2, dash=n.ghost?'4 3':null, face=faceFill(n), side=sideFill(n);
+  const g=el('g',{class:'node'+(S.hover===n.id?' is-hover':'')+(S.selected===n.id?' is-sel':''),style:'cursor:pointer','data-id':n.id});
+  const {gx,gy,w,d,h}=n; const fresh=!n.inside&&isNew(n.id);
+  const sw=1.2, dash=n.ghost?'4 3':null, face=faceFill(n), side=sideFill(n);
   const face3=(p,fill,hatch,extra={})=>{const poly=el('polygon',{points:pts(p),fill:fill,stroke:'var(--ink)','stroke-width':sw,'stroke-linejoin':'round',...extra});if(dash)poly.setAttribute('stroke-dasharray',dash);g.appendChild(poly);if(hatch&&!n.ghost){g.appendChild(el('polygon',{points:pts(p),fill:'url(#'+hatch+')',style:'color:var(--ink)',stroke:'none'}));}};
   const box=(z0,z1,hatchTop)=>{ face3([P(gx,gy+d,z0),P(gx+w,gy+d,z0),P(gx+w,gy+d,z1),P(gx,gy+d,z1)],side,'hatch'); face3([P(gx+w,gy,z0),P(gx+w,gy+d,z0),P(gx+w,gy+d,z1),P(gx+w,gy,z1)],side,'hatch'); face3([P(gx,gy,z1),P(gx+w,gy,z1),P(gx+w,gy+d,z1),P(gx,gy+d,z1)],face,hatchTop||null); };
   const kind=n.kind||'box';
@@ -285,17 +474,17 @@ function drawNode(n){
   else if(kind==='job'){ box(0,h,'hatchLight'); }
   else { box(0,h,null); }
   const top=[P(gx,gy,h),P(gx+w,gy,h),P(gx+w,gy+d,h),P(gx,gy+d,h)];
-  if(sel){ g.appendChild(el('polygon',{points:pts(top),fill:'var(--ink)',opacity:.12,stroke:'var(--ink)','stroke-width':2.5})); }
+  g.appendChild(el('polygon',{class:'sel-fill',points:pts(top),fill:'var(--ink)',stroke:'var(--ink)','stroke-width':2.5}));
   g.appendChild(el('polygon',{class:'hover-ring',points:pts(top),fill:'none',stroke:'var(--ink)','stroke-width':1.8,opacity:0}));
-  if(fresh&&!sel){ g.appendChild(el('polygon',{class:'halo',points:pts([P(gx-.35,gy-.35,0),P(gx+w+.35,gy-.35,0),P(gx+w+.35,gy+d+.35,0),P(gx-.35,gy+d+.35,0)]),fill:'none',stroke:'var(--ink)','stroke-width':1.4,'stroke-dasharray':'4 3'})); }
-  const c=P(gx+w/2,gy+d/2,h); const chipW=16;
-  g.appendChild(el('rect',{x:c[0]-chipW/2,y:c[1]-8,width:chipW,height:14,fill:sel?'var(--hi-bg)':'var(--paper)',stroke:'var(--ink)','stroke-width':1}));
-  const t=el('text',{x:c[0],y:c[1]+3,'text-anchor':'middle','font-size':'9','font-family':'var(--mono)',fill:sel?'var(--hi-fg)':'var(--ink)','font-weight':'600'}); t.textContent=n.code; g.appendChild(t);
+  if(fresh){ g.appendChild(el('polygon',{class:'halo',points:pts([P(gx-.35,gy-.35,0),P(gx+w+.35,gy-.35,0),P(gx+w+.35,gy+d+.35,0),P(gx-.35,gy+d+.35,0)]),fill:'none',stroke:'var(--ink)','stroke-width':1.4,'stroke-dasharray':'4 3'})); }
+  const c=P(gx+w/2,gy+d/2,h); const chipW=Math.max(16,(n.code||'').length*7+8);
+  g.appendChild(el('rect',{class:'chip-bg',x:c[0]-chipW/2,y:c[1]-8,width:chipW,height:14,fill:'var(--paper)',stroke:'var(--ink)','stroke-width':1}));
+  const t=el('text',{class:'chip-tx',x:c[0],y:c[1]+3,'text-anchor':'middle','font-size':'9','font-family':'var(--mono)',fill:'var(--ink)','font-weight':'600'}); t.textContent=n.code; g.appendChild(t);
   g.addEventListener('pointerenter',e=>{setHover(n.id,e,n);});
   g.addEventListener('pointermove',e=>moveTip(e));
   g.addEventListener('pointerleave',()=>setHover(null));
   g.addEventListener('click',e=>{e.stopPropagation();select(n.id);});
-  g.addEventListener('dblclick',e=>{e.stopPropagation();if(!n.inside)goInside(n.id);});
+  g.addEventListener('dblclick',e=>{e.stopPropagation(); if(n.isRole){ openRole(n.roleId); return; } if(!n.inside) goInside(n.id);});
   return g;
 }
 
@@ -308,8 +497,8 @@ function drawPackets(){
     const isSel=S.selPacket===i; const g=el('g',{class:'pkt',style:'cursor:pointer'});
     if(isSel) g.appendChild(el('circle',{cx:x,cy:y,r:11,fill:'none',stroke:'var(--ink)','stroke-width':1.2,'stroke-dasharray':'2 2'}));
     g.appendChild(el('circle',{cx:x,cy:y,r:5.5,fill:'var(--ink)',stroke:'var(--paper)','stroke-width':1.6}));
-    if(isSel||S.hoverPacket===i||S.ch<CH.length-1){ const lbl=el('text',{x:x+10,y:y-8,'font-size':'10','font-family':'var(--mono)',fill:'var(--ink)','font-weight':'500'}); lbl.textContent=h.label; g.appendChild(el('rect',{x:x+7,y:y-19,width:h.label.length*6.4+6,height:14,fill:'var(--paper)',stroke:'var(--ink)','stroke-width':.8})); g.appendChild(lbl); }
-    g.addEventListener('click',e=>{e.stopPropagation();S.selPacket=i;S.playing=false;syncFlowBtn();renderPanel();drawPackets();});
+    if(isSel||S.hoverPacket===i||S.view!=='world'||S.ch<CH.length-1){ const lbl=el('text',{x:x+10,y:y-8,'font-size':'10','font-family':'var(--mono)',fill:'var(--ink)','font-weight':'500'}); lbl.textContent=h.label; g.appendChild(el('rect',{x:x+7,y:y-19,width:h.label.length*6.4+6,height:14,fill:'var(--paper)',stroke:'var(--ink)','stroke-width':.8})); g.appendChild(lbl); }
+    g.addEventListener('click',e=>{e.stopPropagation(); if(nodeIdAt(e.clientX,e.clientY)) return; S.selPacket=i;S.playing=false;syncFlowBtn();renderPanel();drawPackets();});
     g.addEventListener('mouseenter',()=>{S.hoverPacket=i;drawPackets();});
     g.addEventListener('mouseleave',()=>{S.hoverPacket=null;drawPackets();});
     pg.appendChild(g);
@@ -324,83 +513,159 @@ requestAnimationFrame(tick);
 
 /* ---------------- PANEL ---------------- */
 function nodeChip(id){ const n=byId[id]; return `<button class="chip${n.ghost?' ghost':''}" onclick="select('${id}')">${esc(n.code)} · ${esc(n.name)}</button>`; }
+function flowNameOf(flow){
+  if(flow==='ch') return CH[S.ch].title;
+  if(flow==='inside') return 'inside '+(byId[S.inside]||{}).name;
+  if(flow==='net') return 'the network';
+  return (FLOWS.find(f=>f.id===flow)||{}).name;
+}
 function renderPanel(){
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===S.tab));
   if(S.selPacket!=null && S.packets[S.selPacket]){ const p=S.packets[S.selPacket]; const hs=hopsOf(p.flow); const h=hs[p.hop];
-    const A=sceneNodes.find(n=>n.id===h.from), B=sceneNodes.find(n=>n.id===h.to); const flowName=p.flow==='ch'?CH[S.ch].title:p.flow==='inside'?'inside '+byId[S.inside].name:(FLOWS.find(f=>f.id===p.flow)||{}).name;
-    body.innerHTML=`<div class="eyebrow">Data packet · ${esc(flowName)} · hop ${p.hop+1} of ${hs.length}</div><h1 class="t">${esc(h.label)}</h1>
+    const A=hopEnd(h.from), B=hopEnd(h.to);
+    body.innerHTML=`<div class="eyebrow">Data packet · ${esc(flowNameOf(p.flow))} · hop ${p.hop+1} of ${hs.length}</div><h1 class="t">${esc(h.label)}</h1>
     <div class="pk"><div class="lbl">Route</div><div class="route">${esc(A.code)} ${esc(A.name)} &nbsp;→&nbsp; ${esc(B.code)} ${esc(B.name)}</div><div class="lbl">Payload (representative)</div><pre>${esc(JSON.stringify(h.payload,null,2))}</pre></div>
     <p>Payload shapes are what the design implies, not measured traffic.</p>
-    <div class="actions"><button class="ctl" onclick="stepOnce()">Trace one step</button><button class="ctl" onclick="S.selPacket=null;S.playing=true;syncFlowBtn();renderPanel();drawPackets()">Release & play</button><button class="ctl" onclick="select('${esc(B.id)}')">Open ${esc(B.code)}</button></div>`; return; }
-  const id=S.selected??S.hover; const n=id?sceneNodes.find(x=>x.id===id):null;
-  if(!n){ renderChapterPanel(); return; }
-  if(n.inside){ const parent=byId[S.inside]; const i=+n.id.slice(1);
+    <div class="actions"><button class="ctl" onclick="stepOnce()">Trace one step</button><button class="ctl" onclick="S.selPacket=null;S.playing=true;syncFlowBtn();renderPanel();drawPackets()">Release & play</button>${B&&!B.isRole?`<button class="ctl" onclick="select('${esc(B.id)}')">Open ${esc(B.code)}</button>`:''}</div>`; return; }
+  const id=S.selected??S.hover; const n=id?sceneNodes.find(x=>x.id===id)||(S.view==='world'?byId[id]:null):null;
+  if(!n){ renderHomePanel(); return; }
+  if(n.inside&&n.step){ const parent=byId[S.inside]; const i=+n.id.slice(1);
     body.innerHTML=`<div class="eyebrow">Inside ${esc(parent.code)} · ${esc(parent.name)} · step ${i+1} of ${parent.steps.length}</div><h1 class="t">${esc(n.name)}</h1><p class="lede">${esc(n.desc)}</p>
     <h3 class="sec">All steps</h3>${parent.steps.map((s,j)=>`<div class="step ${j===i?'cur':''}"><div class="no">${j+1}</div><div class="tx"><b>${esc(s[0])}</b> — ${esc(s[1])}</div></div>`).join('')}
     <div class="actions"><button class="ctl" onclick="comeOut()">← Come back out</button></div>`; return; }
-  const status = n.ghost?'<span class="chip ghost static">Not switched on</span>':`<span class="chip static">${n.group==='loop'?'turn loop':n.group==='mem'?'memory':'supporting'}</span>`;
+  const status = n.ghost?'<span class="chip ghost static">Not switched on</span>':n.isRole?`<span class="chip static">role</span>`:n.hat?`<span class="chip static">${esc(n.hat)}</span>`:n.role?`<span class="chip static">${esc(roleById[n.role]?roleById[n.role].name:n.role)}</span>`:n.shared?`<span class="chip static">shared</span>`:`<span class="chip static">${n.surround?'surrounding':n.group==='loop'?'turn loop':n.group==='mem'?'memory':'supporting'}</span>`;
   const pinned=S.selected===n.id;
   let content='';
-  if(S.tab==='what') content=`<p class="lede">${n.one}</p><details${pinned?' open':''}><summary>Read more</summary><p>${n.what}</p></details>${n.steps?`<details><summary>Steps in execution</summary>${n.steps.map((s,j)=>`<div class="step"><div class="no">${j+1}</div><div class="tx"><b>${esc(s[0])}</b> — ${esc(s[1])}</div></div>`).join('')}</details>`:''}`;
-  else if(S.tab==='how') content=`<p class="lede">${n.one}</p><p>${n.how}</p>`;
-  else content=`<p class="lede">${n.one}</p>`+(n.cond&&n.cond.length?qHtml(n.cond):`<p>Nothing open here right now.</p>`);
-  body.innerHTML=`<div class="eyebrow">${esc(n.code)} · ${pinned?'pinned':'hovering'}${isNew(n.id)?' · new in this chapter':''}</div><h1 class="t">${esc(n.name)}</h1><div class="sub">${status}</div>${content}
-  ${pinned?`<div class="actions">${n.steps?`<button class="ctl" onclick="goInside('${n.id}')">→ Go inside</button>`:''}<button class="ctl" onclick="select(null)">Back to chapter</button></div>`:''}`;
+  if(S.tab==='what') content=`<p class="lede">${n.one||''}</p>${n.what?`<details${pinned?' open':''}><summary>Read more</summary><p>${n.what}</p></details>`:''}${n.steps?`<details><summary>Steps in execution</summary>${n.steps.map((s,j)=>`<div class="step"><div class="no">${j+1}</div><div class="tx"><b>${esc(s[0])}</b> — ${esc(s[1])}</div></div>`).join('')}</details>`:''}`;
+  else content=`<p class="lede">${n.one||''}</p><p>${n.how||''}</p>`;
+  const where=n.isRole?' · network overview':n.inside?' · inside':isNew(n.id)?' · new in this chapter':'';
+  let actions='';
+  if(pinned){
+    if(n.isRole) actions=`<div class="actions"><button class="ctl primary" onclick="openRole('${n.roleId}')">→ See components</button></div>`;
+    else if(n.inside) actions=`<div class="actions"><button class="ctl" onclick="comeOut()">← Come back out</button></div>`;
+    else actions=`<div class="actions">${n.steps?`<button class="ctl" onclick="goInside('${n.id}')">→ Go inside</button>`:''}<button class="ctl" onclick="select(null)">Back</button></div>`;
+  }
+  body.innerHTML=`<div class="eyebrow">${esc(n.code)} · ${pinned?'pinned':'hovering'}${where}</div><h1 class="t">${esc(n.name)}</h1><div class="sub">${status}</div>${content}${actions}`;
 }
-function renderChapterPanel(){
-  const c=CH[S.ch]; const last=S.ch===CH.length-1;
+function renderHomePanel(){
   if(S.tab==='how'){ body.innerHTML=HOW_HTML; return; }
-  if(S.tab==='cond'){ body.innerHTML=`<div class="eyebrow">${esc(TITLE)}</div><h1 class="t">Open questions</h1><div class="sub">${last?'everything unresolved, by structure':'for the structures revealed so far'}</div>`+NODES.filter(n=>revealedIds().includes(n.id)&&n.cond&&n.cond.length).map(n=>`<h3 class="sec">${n.code} · ${esc(n.name)}${n.ghost?' <span class="chip ghost static">later</span>':''}</h3>${qHtml(n.cond)}`).join(''); return; }
+  if(S.view==='network'){
+    body.innerHTML=`<div class="eyebrow">${esc(TITLE)} · network overview</div><h1 class="t">Network overview</h1>
+    <p class="lede">A fleet of roles, not one machine. Apps talk to RPC nodes; a sequencer produces blocks; a batcher, proposer, and challenger keep Ethereum in the loop.</p>
+    <p>Click a role to see its components on the map. Chapters stay on the rail. Sequencer wraps RPC — a sequencer is an RPC node plus the production extras.</p>
+    <h3 class="sec">Roles</h3><div>${roles.map(r=>`<button class="chip" onclick="openRole('${r.id}')">${esc(r.code)} · ${esc(r.name)}</button>`).join('')}</div>
+    <div class="actions"><button class="ctl primary" onclick="enterE2e(0,null)">Walk the system ▸</button></div>`;
+    return;
+  }
+  const c=CH[S.ch]; const last=S.ch===CH.length-1;
   const chips = last ? '' : `<h3 class="sec">New in this chapter</h3><div>${c.reveal.map(nodeChip).join('')}</div>`;
-  const nav=`<div class="actions"><button class="ctl" onclick="prevCh()" ${S.ch===0?'disabled':''}>◂ Back</button><button class="ctl primary" onclick="nextCh()" ${last?'disabled':''}>${S.ch===CH.length-2?'Show the whole system ▸':'Next ▸'}</button></div>`;
+  const nav=`<div class="actions"><button class="ctl" onclick="prevCh()">${S.ch===0?'← Network overview':'◂ Back'}</button><button class="ctl primary" onclick="nextCh()" ${last?'disabled':''}>${S.ch===CH.length-2?'Show the whole system ▸':'Next ▸'}</button></div>`;
   body.innerHTML=`<div class="eyebrow">Chapter ${S.ch+1} of ${CH.length}</div><h1 class="t">${esc(c.title)}</h1><p class="lede">${c.lede}</p>${c.story}${chips}${nav}
   ${last?`<h3 class="sec">Decisions locked</h3><ul>${DECISIONS_HTML}</ul>`:''}`;
 }
 document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click',()=>{S.tab=b.dataset.tab;S.selPacket=null;renderPanel();drawPackets();}));
 
 /* ---------------- STATS ---------------- */
-function renderStats(){ const el=document.getElementById('stats'); const open=NODES.reduce((a,n)=>a+qOpen(n),0), routed=NODES.reduce((a,n)=>a+(n.cond||[]).filter(c=>c.to).length,0), res=NODES.reduce((a,n)=>a+(n.cond||[]).filter(c=>c.r).length,0);
-  const dyn={chapter:`${S.ch+1} / ${CH.length}`, shown:`${revealedIds().length} / ${NODES.length}`, questions:`${open} open · ${routed} routed · ${res} resolved`};
-  const all=[...(STATS||[]), {k:'Chapter',v:dyn.chapter},{k:'Structures shown',v:dyn.shown},{k:'Open questions',v:dyn.questions,grow:true}];
-  el.innerHTML=all.map(s=>`<div class="stat${s.grow?' grow':''}"><div class="k">${s.k}</div><div class="v">${s.v}</div></div>`).join(''); }
+function renderStats(){
+  const el=document.getElementById('stats');
+  const view=S.view==='network'?'network overview':`chapter ${S.ch+1} / ${CH.length}`;
+  const shown=S.view==='world'?`${sceneNodes.length} / ${NODES.length}`:String(sceneNodes.length);
+  const all=[...(STATS||[]), {k:'View',v:view},{k:'On the map',v:shown,grow:true}];
+  el.innerHTML=all.map(s=>`<div class="stat${s.grow?' grow':''}"><div class="k">${s.k}</div><div class="v">${s.v}</div></div>`).join('');
+}
 
 /* ---------------- INDEX + RAIL ---------------- */
+function ixButton(n, opts){
+  const b=document.createElement('button');
+  b.className='ix'+(opts.on?' on':'')+(opts.later?' later':'')+(opts.fresh?' new':'');
+  b.innerHTML=`<span class="swatch" style="background:var(--face-${esc(n.kind||'box')})"></span><span class="code">${esc(n.code)}</span><span class="nm">${esc(n.name)}</span><span class="n">${esc(opts.meta||'')}</span>`;
+  b.addEventListener('click',opts.onClick);
+  if(opts.enter) b.addEventListener('pointerenter',opts.enter);
+  if(opts.leave) b.addEventListener('pointerleave',opts.leave);
+  return b;
+}
 function renderIndex(){
-  const ix=document.getElementById('index'); ix.innerHTML=''; const rev=new Set(revealedIds());
-  GROUPS.forEach(g=>{ const h=document.createElement('h4'); h.textContent=g.title; ix.appendChild(h);
-    NODES.filter(n=>n.group===g.id).forEach(n=>{ const b=document.createElement('button'); const shown=rev.has(n.id);
-      b.className='ix'+(n.ghost&&shown?' ghost':'')+(!shown?' later':'')+(S.selected===n.id?' on':'')+(isNew(n.id)?' new':''); b.dataset.id=n.id;
-      b.innerHTML=`<span class="swatch" style="background:var(--face-${esc(n.kind||'box')})"></span><span class="code">${n.code}</span><span class="nm">${esc(n.name)}</span><span class="n" title="${shown?'open questions':'revealed in chapter'}">${shown?qOpen(n):'ch '+(revealChapterOf(n.id)+1)}</span>`;
-      b.addEventListener('click',()=>{ if(!shown){ gotoCh(revealChapterOf(n.id)); select(n.id); return; } if(S.view!=='world')comeOut(); select(n.id); focusNode(n); });
-      b.addEventListener('pointerenter',()=>{ if(S.view==='world'&&shown) setHover(n.id); });
-      b.addEventListener('pointerleave',()=>{ if(S.view==='world') setHover(null); });
-      ix.appendChild(b); }); });
+  const ix=document.getElementById('index'); ix.innerHTML='';
+  if(S.view==='network'){
+    const h=document.createElement('h4'); h.textContent='Roles'; ix.appendChild(h);
+    roles.forEach(r=>{ const n=roleNode(r); ix.appendChild(ixButton(n,{on:S.selected===n.id,meta:'role',onClick:()=>openRole(r.id),enter:()=>setHover(n.id,null,n),leave:()=>setHover(null)})); });
+    const hs=document.createElement('h4'); hs.textContent='Surroundings'; ix.appendChild(hs);
+    NODES.filter(n=>n.surround).forEach(n=>ix.appendChild(ixButton(n,{on:S.selected===n.id,onClick:()=>{select(n.id); focusNode(sceneNodes.find(x=>x.id===n.id)||n);},enter:()=>setHover(n.id),leave:()=>setHover(null)})));
+    renderStats(); return;
+  }
+  const rev=new Set(revealedIds());
+  const addNode=n=>{
+    const shown=rev.has(n.id);
+    ix.appendChild(ixButton(n,{on:S.selected===n.id||S.inside===n.id,later:!shown,fresh:isNew(n.id),meta:shown?'':'ch '+(revealChapterOf(n.id)+1),
+      onClick:()=>{ if(!shown){ gotoCh(revealChapterOf(n.id)); select(n.id); return; } if(S.view!=='world')comeOut(); select(n.id); focusNode(n); },
+      enter:()=>{ if(S.view==='world'&&shown) setHover(n.id); },
+      leave:()=>{ if(S.view==='world') setHover(null); } }));
+  };
+  const sur=NODES.filter(n=>n.surround);
+  if(sur.length){ const hd=document.createElement('h4'); hd.textContent='Surroundings'; ix.appendChild(hd); sur.forEach(addNode); }
+  roles.forEach(r=>{
+    const nodes=NODES.filter(n=>n.role===r.id); if(!nodes.length) return;
+    const hd=document.createElement('h4'); hd.className='rh';
+    hd.innerHTML=`<span class="dot" style="background:var(--hull-${r.id})"></span>${esc(r.name)}${r.contains&&r.contains.includes('rpc')?' · includes rpc':''}`;
+    ix.appendChild(hd); nodes.forEach(addNode);
+  });
   renderStats();
 }
-function renderRail(){ const r=document.getElementById('rail'); if(S.view!=='world'){ r.innerHTML=`<span class="title">THE SYSTEM &nbsp;›&nbsp; <b>${esc(byId[S.inside].code)} ${esc(byId[S.inside].name)}</b> &nbsp;·&nbsp; steps in execution</span>`; document.getElementById('flowSel').style.display='none'; return; }
-  r.innerHTML=CH.map((c,i)=>`<button class="ch ${i===S.ch?'on':i<S.ch?'done':''} ${i>S.maxCh+1?'locked':''}" title="${esc(c.title)}" onclick="gotoCh(${i})">${i+1}</button>`).join('')+`<span class="title">chapter ${S.ch+1} · <b>${esc(CH[S.ch].title)}</b></span>`;
-  const fs=document.getElementById('flowSel'); fs.style.display = S.ch===CH.length-1?'flex':'none';
+function homeBtn(){ return `<button class="home ${S.view==='network'?'on':''}" onclick="goNetwork()">Network Overview</button>`; }
+function chapterBtns(){
+  return CH.map((c,i)=>`<button class="ch ${S.view==='world'&&i===S.ch?'on':S.view==='world'&&i<S.ch?'done':''} ${i>S.maxCh+1?'locked':''}" title="${esc(c.title)}" onclick="gotoCh(${i})">${i+1}</button>`).join('');
+}
+function railTitle(){
+  if(S.view==='inside') return `inside · <b>${esc(byId[S.inside].code)} ${esc(byId[S.inside].name)}</b>`;
+  if(S.view==='network') return `network <b>overview</b>`;
+  return `chapter ${S.ch+1} · <b>${esc(CH[S.ch].title)}</b>`;
+}
+function renderRail(){
+  const r=document.getElementById('rail'); const fs=document.getElementById('flowSel');
+  r.innerHTML=homeBtn()+chapterBtns()+`<span class="title">${railTitle()}</span>`;
+  fs.style.display = S.view==='world'&&S.ch===CH.length-1?'flex':'none';
   if(!fs.dataset.built){ fs.innerHTML=[...FLOWS.map(f=>`<button data-f="${f.id}">${f.name}</button>`),'<button data-f="both">All flows</button>'].join(''); fs.dataset.built='1'; fs.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{S.flowSel=b.dataset.f;buildWorldScene();initPackets();render();})); }
   fs.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.f===S.flowSel));
-  document.getElementById('btnBack').disabled=S.ch===0; document.getElementById('btnNext').disabled=S.ch===CH.length-1;
+  syncNavBtns();
+}
+function syncNavBtns(){
+  const back=document.getElementById('btnBack'), next=document.getElementById('btnNext');
+  if(S.view==='network'){ back.disabled=true; next.disabled=false; next.textContent='Walk the system ▸'; }
+  else if(S.view==='inside'){ back.disabled=false; next.disabled=true; back.textContent='◂ Network overview'; next.textContent='Next ▸'; }
+  else { back.disabled=false; next.disabled=S.ch===CH.length-1; back.textContent=S.ch===0?'◂ Network overview':'◂ Back'; next.textContent='Next ▸'; }
 }
 
 /* ---------------- NAV ---------------- */
-function select(id){ S.selected=id; S.selPacket=null; if(id) hideTip(); renderIndex(); renderPanel(); render(); }
-function gotoCh(i){ i=Math.max(0,Math.min(CH.length-1,i)); if(S.view!=='world'){S.view='world';S.inside=null;} S.ch=i; S.maxCh=Math.max(S.maxCh,i); S.selected=null; S.hover=null; hideTip(); S.tab='what'; buildWorldScene(); initPackets(); S.playing=true; syncFlowBtn(); renderIndex(); render(); renderPanel(); fitView(true); }
-function nextCh(){ gotoCh(S.ch+1); } function prevCh(){ gotoCh(S.ch-1); }
-function goInside(id){ const n=byId[id]; if(!n||!n.steps)return; S.view='inside'; S.inside=id; S.selected='s0'; buildInsideScene(n); initPackets(); fitView(true); renderIndex(); render(); renderPanel(); }
+function refresh(anim){ buildScene(); initPackets(); S.playing=true; syncFlowBtn(); renderIndex(); render(); renderPanel(); fitView(anim!==false); }
+function select(id){
+  const n=id?sceneNodes.find(x=>x.id===id):null;
+  if(n&&n.isRole){ openRole(n.roleId); return; }
+  S.selected=id; S.selPacket=null; if(id) hideTip(); renderIndex(); renderPanel(); paintSelection();
+}
+function goNetwork(){ S.view='network'; S.inside=null; S.selected=null; S.hover=null; hideTip(); S.tab='what'; refresh(true); }
+function openRole(id){
+  const r=roleById[id]; if(!r) return;
+  enterE2e(CH.length-1, (r.components||[])[0]);
+}
+function enterE2e(ch, focusId){
+  S.view='world'; S.inside=null; S.ch=Math.max(0,Math.min(CH.length-1,ch)); S.maxCh=Math.max(S.maxCh,S.ch); S.selected=null; S.hover=null; hideTip(); S.tab='what'; refresh(true);
+  if(focusId){ const n=sceneNodes.find(x=>x.id===focusId); if(n){ select(focusId); focusNode(n); } }
+}
+function gotoCh(i){ i=Math.max(0,Math.min(CH.length-1,i)); S.view='world'; S.inside=null; S.ch=i; S.maxCh=Math.max(S.maxCh,i); S.selected=null; S.hover=null; hideTip(); S.tab='what'; refresh(true); }
+function nextCh(){ if(S.view==='network'){ enterE2e(0,null); return; } gotoCh(S.ch+1); }
+function prevCh(){ if(S.view==='inside'||(S.view==='world'&&S.ch===0)){ goNetwork(); return; } gotoCh(S.ch-1); }
+function goInside(id){ const n=byId[id]; if(!n||!n.steps)return; S.view='inside'; S.inside=id; buildInsideScene(n); S.selected=sceneNodes[0]?sceneNodes[0].id:null; initPackets(); fitView(true); renderIndex(); render(); renderPanel(); }
 function comeOut(){ const was=S.inside; S.view='world'; S.inside=null; buildWorldScene(); initPackets(); S.selected=was; fitView(true); renderIndex(); render(); renderPanel(); }
-function orderList(){ return S.view==='world'?sceneNodes.map(n=>n.id):sceneNodes.map(n=>n.id); }
+function orderList(){ return sceneNodes.map(n=>n.id); }
 document.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT')return; const L=orderList(); let i=L.indexOf(S.selected);
   if(e.key==='ArrowDown'){e.preventDefault();select(L[Math.min(L.length-1,i+1)]);}
   else if(e.key==='ArrowUp'){e.preventDefault();select(L[Math.max(0,i-1)]);}
-  else if(e.key==='ArrowRight'){e.preventDefault(); if(S.view==='world'&&S.selected)goInside(S.selected);}
-  else if(e.key==='ArrowLeft'){e.preventDefault(); if(S.view==='inside')comeOut(); else select(null);}
-  else if(e.key==='Enter'||e.key===']'){e.preventDefault(); if(S.view==='world')nextCh();}
-  else if(e.key==='['){e.preventDefault(); if(S.view==='world')prevCh();}
+  else if(e.key==='ArrowRight'){e.preventDefault(); const n=sceneNodes.find(x=>x.id===S.selected); if(n&&n.isRole) openRole(n.roleId); else if(S.view==='world'&&S.selected) goInside(S.selected);}
+  else if(e.key==='ArrowLeft'){e.preventDefault(); if(S.view==='inside')comeOut(); else if(S.view!=='network') goNetwork(); else select(null);}
+  else if(e.key==='Enter'||e.key===']'){e.preventDefault(); nextCh();}
+  else if(e.key==='['){e.preventDefault(); prevCh();}
   else if(e.key===' '){e.preventDefault();toggleFlow();}
-  else if(e.key==='Escape'){select(null);} });
+  else if(e.key==='Escape'){ if(S.view!=='network'&&!S.selected) goNetwork(); else select(null);} });
 
 /* ---------------- VIEW / PAN / ZOOM ---------------- */
 let tween=null;
@@ -412,9 +677,9 @@ function fitView(anim){ const r=svg.getBoundingClientRect(); if(!sceneNodes.leng
 function focusNode(n){ const r=svg.getBoundingClientRect(); const c=P(n.gx+n.w/2,n.gy+n.d/2,n.h/2); setView(r.width/2-c[0]*S.k, r.height/2-c[1]*S.k, S.k, true); }
 function zoomAt(f,cx,cy){ tween=null; const nk=Math.max(.35,Math.min(3,S.k*f)); S.tx=cx-(cx-S.tx)*(nk/S.k); S.ty=cy-(cy-S.ty)*(nk/S.k); S.k=nk; applyView(); }
 svg.addEventListener('wheel',e=>{e.preventDefault(); const r=svg.getBoundingClientRect(); zoomAt(e.deltaY<0?1.1:0.9,e.clientX-r.left,e.clientY-r.top);},{passive:false});
-let drag=null; svg.addEventListener('pointerdown',e=>{ if(e.button!==0)return; tween=null; drag={x:e.clientX,y:e.clientY,tx:S.tx,ty:S.ty,moved:false}; svg.setPointerCapture(e.pointerId); });
-svg.addEventListener('pointermove',e=>{ if(!drag)return; const dx=e.clientX-drag.x,dy=e.clientY-drag.y; if(Math.hypot(dx,dy)>3){drag.moved=true;svg.classList.add('dragging');} S.tx=drag.tx+dx; S.ty=drag.ty+dy; applyView(); });
-svg.addEventListener('pointerup',e=>{ if(drag&&!drag.moved){ select(null); } drag=null; svg.classList.remove('dragging'); });
+let drag=null; svg.addEventListener('pointerdown',e=>{ if(e.button!==0)return; tween=null; drag={x:e.clientX,y:e.clientY,tx:S.tx,ty:S.ty,moved:false,nodeId:nodeIdAt(e.clientX,e.clientY)}; svg.setPointerCapture(e.pointerId); });
+svg.addEventListener('pointermove',e=>{ if(!drag)return; const dx=e.clientX-drag.x,dy=e.clientY-drag.y; if(!drag.moved && Math.hypot(dx,dy)<=6) return; drag.moved=true; svg.classList.add('dragging'); S.tx=drag.tx+dx; S.ty=drag.ty+dy; applyView(); });
+svg.addEventListener('pointerup',e=>{ if(drag&&!drag.moved){ const id=nodeIdAt(e.clientX,e.clientY)||drag.nodeId; if(id) select(id); else if(!e.target.closest?.('g.pkt')) select(null); } drag=null; svg.classList.remove('dragging'); });
 svg.addEventListener('pointerleave',()=>{ if(!drag) setHover(null); });
 document.getElementById('zin').onclick=()=>{const r=svg.getBoundingClientRect();zoomAt(1.2,r.width/2,r.height/2);};
 document.getElementById('zout').onclick=()=>{const r=svg.getBoundingClientRect();zoomAt(1/1.2,r.width/2,r.height/2);};
@@ -433,5 +698,5 @@ document.getElementById('btnReset').onclick=()=>{ select(null); fitView(true); }
 document.getElementById('btnNext').onclick=nextCh; document.getElementById('btnBack').onclick=prevCh;
 
 /* ---------------- BOOT ---------------- */
-gotoCh(0);
+goNetwork();
 </script>

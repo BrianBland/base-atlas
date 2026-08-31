@@ -2,8 +2,6 @@
 
 _**This file is the living source of truth for how this repository fits together.** The interactive atlas is built from the same data._
 
-_Question status: **1 open · 10 resolved**._
-
 ## One paragraph
 
 This repo is the Base rollup stack: a Reth-based execution node, a consensus node that derives L2 from Ethereum and can sequence, a Flashblocks builder, a batcher that posts L2 data to L1, and a proving path that proposes output roots and challenges bad games. Apps talk to JSON-RPC; the sequencer builds a block every ~2s, streaming Flashblocks first; the batcher writes that history to Ethereum; every other node re-derives the same chain from L1.
@@ -26,17 +24,87 @@ Not a per-user SaaS bill. The operating costs that matter here are L1 data avail
 Block time is `rollup_config.block_time` (2s on Base). Flashblocks are sub-second chunks of the same payload. DA throttle (`miner_setMaxDASize`) shrinks what the builder may include when the L1 backlog grows.
 Standalone ZK proving (`just prover up`) is user-funded: `network` pays PROVE on the Succinct marketplace; `dry-run` is free cycle counting; `cluster` is your own GPU farm. See `docs/guides/STANDALONE_PROVING.md`.
 
-## Reading order (the atlas chapters)
+## Network roles
+
+The atlas opens on the network overview: five roles plus Apps and Ethereum L1 as surroundings.
+
+### RPC · RPC
+
+**In one line.** Anyone-can-run validator node: serve JSON-RPC, hear blocks over P2P, forward txs toward the sequencer.
+
+**What it does.** The public flavor of a Base node. It receives unsafe payloads over gossip, derives safe from L1, serves `eth_*`, and subscribes to Flashblocks for `pending`. It inserts a tx into the sequencer when it can; otherwise it forwards toward the cluster. Stock `base rpc` currently filters forwarding flags — the forward path lives in `base-tx-forwarding` / ingress.
+
+**How it's built.** `base rpc` embeds EL+CL, or docker-compose split EL+CL. The e2e plate is the ordinary node: RPC, pool, engine, disk, Flashblocks subscribe, gossip, derivation, SafeDB. A sequencer is this plate plus builder, tx ingress, and conductor.
+
+**E2E components.** R, P, F, E, D, G, V, K
+
+### SEQ · Sequencer
+
+**In one line.** An RPC node plus the production extras: tx ingress, Flashblocks builder, and conductor.
+
+**What it does.** A sequencer is a superset of an RPC node. Same engine, disk, gossip, and derivation — plus the door and lock that actually build blocks. Conductor is the per-replica raft lock; only the leader may seal. This map does not draw every replica.
+
+**How it's built.** `base sequencer` embeds EL + Flashblocks builder + CL. Conductor is per replica; raft is conductor-to-conductor.
+
+**E2E components.** I, B, W
+
+**Contains.** rpc — this plate wraps those roles on the e2e map.
+
+### BCH · Batcher
+
+**In one line.** Reads unsafe L2 from the sequencer and posts frames to Ethereum.
+
+**What it does.** Not a p2p node. Connects to sequencer RPC, compresses channels, submits blobs or calldata to the L1 inbox, and throttles the builder if DA backs up.
+
+**How it's built.** `bin/batcher` / `base-batcher-service`. One job on the e2e map.
+
+**E2E components.** A
+
+### PRP · Proposer
+
+**In one line.** Reads a validator’s L2 state, attests an output root in a TEE, posts a dispute game on L1.
+
+**What it does.** Not the sequencer. Needs an L2 validator (usually an RPC node) plus L1. Parent game is always re-read from chain.
+
+**How it's built.** `bin/proposer` / `base-proposer`. TEE path under `crates/proof/tee/`.
+
+**E2E components.** O, T
+
+### CHL · Challenger
+
+**In one line.** Watches L1 games, recomputes against a validator, fetches a proof, publishes the challenge.
+
+**What it does.** The ZK prover lives inside this role — a job queue for proof bytes, not a peer. Challenger connects to a validator and to L1. TEE attestations for proposals sit with the Proposer.
+
+**How it's built.** `bin/challenger` / `base-challenger` plus `base-prover-service` ZK workers.
+
+**E2E components.** H, Z
+
+## Network hops
+
+| # | From → To | Packet | Representative payload |
+|---|---|---|---|
+| 1 | U → role:rpc | eth_sendRawTransaction | `{"raw":"0x02f8…"}` |
+| 2 | role:rpc → role:seq | insert or forward | `{"to":"sequencer"}` |
+| 3 | role:seq → role:rpc | Flashblocks + gossip | `{"pending":true,"unsafe":true}` |
+| 4 | role:seq → role:batcher | unsafe L2 | `{"first":42417600}` |
+| 5 | role:batcher → L | blob batch | `{"inbox":"batch_inbox"}` |
+| 6 | role:rpc → role:proposer | L2 state | `{"outputRoot":"0xout…"}` |
+| 7 | role:proposer → L | createWithInitData | `{"factory":"DisputeGameFactory"}` |
+| 8 | role:rpc → role:challenger | L2 state | `{"l2Block":42417000}` |
+| 9 | role:challenger → L | challenge() | `{"game":"0xproxy…"}` |
+
+## Reading order (the e2e chapter tour)
 
 1. **You and the node** — Strip everything away and Base is a JSON-RPC URL you already know how to call. _(adds U, R)_
 2. **The engine and the disk** — RPC is a window. The Reth engine and its datadir are the room behind it. _(adds E, D)_
 3. **Getting into the mempool** — A submitted transaction parks in the pool, then (on replicas) is forwarded to the builder door. _(adds P, I)_
 4. **Flashblocks** — The next block is built in public, a chunk at a time, before it has a hash you can finalize. _(adds B, F)_
-5. **The sequencer and the lock** — Once a second-or-two clock fires, one leader seals the payload and commits it. _(adds S, W)_
-6. **Telling the rest of the network** — The sealed unsafe block is gossiped so replicas do not wait for Ethereum. _(adds N)_
+5. **Sealing the block** — The same builder that streamed Flashblocks now seals one payload. Conductor is the lock. _(adds W)_
+6. **Telling the rest of the fleet** — Flashblocks and the sealed payload leave the builder toward RPC nodes. _(adds G)_
 7. **Posting the history to Ethereum** — Gossip is fast. Ethereum is the copy of record. _(adds L, A)_
 8. **Deriving the safe chain** — Every honest node can rebuild the same safe head from L1 data alone. _(adds V, K)_
-9. **Proposing and challenging roots** — L1 also holds court: a TEE-backed proposer posts roots; a challenger and prover service dispute the bad ones. _(adds O, H, Z)_
+9. **Proposing and challenging roots** — L1 also holds court: a TEE-backed proposer posts roots; a challenger and a ZK prover dispute the bad ones. _(adds O, T, H, Z)_
 10. **The whole system** — Everything at once — pick a flow in the bottom left.
 
 ## Structures
@@ -57,10 +125,6 @@ Standalone ZK proving (`just prover up`) is user-funded: `network` pays PROVE on
 2. **Submit** — eth_sendRawTransaction (or a bundle) to an RPC URL.
 3. **Watch** — Poll receipts or subscribe; pending may come from Flashblocks.
 
-**Questions.**
-
-- ~~**Q-U1** Do we map wallets/explorers as part of this atlas?~~ ✓ No — they are clients of this repo, not in-tree (2026-08-28).
-
 #### R · JSON-RPC node
 
 **In one line.** The public face of a Base node: Ethereum JSON-RPC plus rollup and Flashblocks methods.
@@ -73,17 +137,13 @@ Standalone ZK proving (`just prover up`) is user-funded: `network` pays PROVE on
 
 1. **Admit** — Accept eth_*, debug_*, optimism_*, flashblock subscriptions.
 2. **Read** — Serve canonical state from the execution DB; pending from Flashblocks.
-3. **Forward** — If configured, send raw txs toward the sequencer / builder ingress.
-
-**Questions.**
-
-- **Q-R1** Should the published operator node stay as split EL+CL containers, or is `base rpc` the long-term public shape?
+3. **Forward** — Insert into the sequencer when possible; otherwise forward toward ingress. Stock `base rpc` currently filters forwarding flags — the path lives in `base-tx-forwarding` / ingress.
 
 #### F · Flashblocks stream
 
-**In one line.** The WebSocket that carries Flashblock payloads from the builder to RPC nodes and tools.
+**In one line.** The WebSocket door: Flashblock payloads leave the builder toward RPC nodes.
 
-**What it does.** RPC nodes subscribe here so `eth_getBlockByNumber("pending")` and flashblock subscriptions stay ahead of the sealed block. A proxy sits in front so the sequencer is not crushed by every replica opening a socket.
+**What it does.** RPC nodes subscribe so `eth_getBlockByNumber("pending")` stays ahead of the sealed block. A proxy sits in front so the sequencer is not crushed by every replica opening a socket.
 
 **How it's built.** Publisher: `base-builder-publish`. Subscriber: `FlashblocksSubscriber` in `base-flashblocks`. Fan-out: `bin/websocket-proxy` (upstream rollup-boost / builder WS; optional Brotli). `basectl flashblocks` prints JSONL; `eth_subscribe("newFlashblocks")` on the node.
 
@@ -92,10 +152,6 @@ Standalone ZK proving (`just prover up`) is user-funded: `network` pays PROVE on
 1. **Publish** — Builder broadcasts FlashblocksPayloadV1 (index 0 includes base).
 2. **Proxy** — websocket-proxy fans out to replicas.
 3. **Reconcile** — FlashblocksState + CanonicalBlockReconciler merge pending with canonical.
-
-**Questions.**
-
-- ~~**Q-F1** Is websocket-proxy production-hardened?~~ ✓ README still calls it alpha: one-way, no payload inspection (2026-08-28).
 
 ### The production loop
 
@@ -113,15 +169,11 @@ Standalone ZK proving (`just prover up`) is user-funded: `network` pays PROVE on
 2. **Execute** — Apply deposits, then txpool or derived txs, against parent state.
 3. **getPayload / newPayload** — Return a sealed payload, or import one from gossip/derivation.
 
-**Questions.**
-
-- ~~**Q-E1** Is this still op-geth?~~ ✓ No. This tree is Reth-based Base execution (2026-08-28).
-
 #### P · Transaction pool
 
 **In one line.** The mempool: valid not-yet-included transactions, ordered for the builder.
 
-**What it does.** When you send a transaction, it sits here until a block (or Flashblock) takes it. Base adds L1-data-fee checks and its own ordering. Replica nodes can drain this pool toward builder URLs.
+**What it does.** When you send a transaction, it sits here until a block (or Flashblock) takes it. Base adds L1-data-fee checks and its own ordering. Replica nodes can drain this pool toward tx ingress.
 
 **How it's built.** `base-execution-txpool`: `BaseTransactionValidator`, `BaseOrdering`. Forwarding: `base-tx-forwarding` (`base_insertValidatedTransaction`). Inspect/clear via `basectl txpool`.
 
@@ -131,15 +183,11 @@ Standalone ZK proving (`just prover up`) is user-funded: `network` pays PROVE on
 2. **Park** — Pending vs queued by nonce.
 3. **Select** — Builder pulls best txs under gas/DA/metering limits.
 
-**Questions.**
-
-- ~~**Q-P1** Do replicas include txs locally?~~ ✓ No. Replicas forward; the sequencer/builder selects (2026-08-28).
-
-#### I · Builder ingress
+#### I · Tx ingress
 
 **In one line.** The builder-facing JSON-RPC that accepts validated transactions and bundles.
 
-**What it does.** The public RPC is not where searchers and mempool nodes dump inventory into the sequencer. Ingress is that door: validate a bundle, meter it, emit an audit event, hand it to the builder connection.
+**What it does.** The public RPC is not where searchers and mempool nodes dump inventory into the sequencer. Tx ingress is that door: validate a bundle, meter it, emit an audit event, hand it to the builder connection.
 
 **How it's built.** `bin/ingress-rpc` / `ingress-rpc-lib`: `IngressService`, `validate_bundle`, `BuilderConnector`, health + metrics. Wire format for pool forwarding is `ValidatedTransaction` in `base-execution-txpool`.
 
@@ -151,9 +199,9 @@ Standalone ZK proving (`just prover up`) is user-funded: `network` pays PROVE on
 
 #### B · Flashblocks builder
 
-**In one line.** Builds the next L2 block in sub-second chunks and publishes each chunk before the block is sealed.
+**In one line.** Builds the next L2 block in public chunks, then seals one payload for conductor, engine, and gossip.
 
-**What it does.** Instead of waiting two seconds to learn what is in the block, the network sees Flashblocks as they fill. The same job later finalizes one canonical payload for the Engine API. Empty or underfilled chunks are a production-halt risk if metering or size limits starve the loop.
+**What it does.** The producer in the Sequencer role. It streams Flashblocks on the WebSocket as the block fills, then the same job finalizes one canonical payload. That sealed payload is what conductor commits, the engine inserts, and gossip publishes. Empty or underfilled chunks are a production-halt risk if metering or size limits starve the loop.
 
 **How it's built.** `base-builder-core` flashblocks loop; `base-builder-publish` WebSocket broadcast; metering in `base-builder-metering`. Embedded by `base sequencer` (`--flashblocks.port`) or standalone `bin/builder`. Payload type: `FlashblocksPayloadV1` in `base-common-flashblocks`.
 
@@ -161,53 +209,27 @@ Standalone ZK proving (`just prover up`) is user-funded: `network` pays PROVE on
 
 1. **Start job** — Engine forkchoiceUpdated returns a PayloadId for this block.
 2. **Chunk** — build_next_flashblock: pick txs, execute, publish delta.
-3. **Finalize** — Seal the full payload for getPayload / sequencer seal.
-
-**Questions.**
-
-- ~~**Q-B1** Can Flashblock publish fail without a final block?~~ ✓ Treated as critical: finalize must still produce a valid payload (BLOCK_PRODUCTION_REVIEW, 2026-08-28).
-
-#### S · Sequencer
-
-**In one line.** The brain of live Base: a wall-clock loop that starts, seals, and inserts each L2 block.
-
-**What it does.** On a sequencing node this actor wakes every block time, picks the L1 origin, asks the engine to build, waits for the payload, then (if configured) asks the conductor to commit, gossips the block, and inserts it as the new unsafe head. Validators do not run this loop — they follow gossip and L1 derivation.
-
-**How it's built.** `SequencerActor` in `base-consensus-node`. Build via `PayloadBuilder` + `L1OriginSelector` + `StatefulAttributesBuilder`. Seal pipeline: conductor commit → gossip → `insert_unsafe_payload`. Admin: `admin_startSequencer` / `admin_stopSequencer` (`basectl sequencer`). Requires a sequencer key. `--sequencer.recover` forces empty blocks.
-
-**Steps in execution.**
-
-1. **Tick** — Wall-clock block_time; parent must be the inserted unsafe head.
-2. **Attributes** — L1 origin, deposits, pool-on/off, start_build_block → PayloadId.
-3. **Seal** — getPayload, then commit / gossip / insert.
-
-**Questions.**
-
-- ~~**Q-S1** Who may sequence?~~ ✓ The configured sequencer key / signer endpoint; conductor leadership gates start when enabled (2026-08-28).
+3. **Seal** — Finalize the full payload; commit via conductor, insert in the engine, gossip to the fleet.
 
 #### W · Conductor
 
-**In one line.** The HA gate: only the raft leader may sequence and commit unsafe payloads.
+**In one line.** Per-replica raft lock: only the leader may commit a sealed payload.
 
-**What it does.** If two sequencers built at once, the chain would split. Conductor is the lock. This repo owns the client and the seal-time `commit_unsafe_payload` call, plus `basectl conductor` for pause/transfer. The raft process itself is the external conductor RPC (`--conductor.rpc`).
+**What it does.** Conductor is part of the Sequencer role, not a sibling of the builder. Each replica talks to its own conductor; raft is conductor-to-conductor. The builder hands the sealed payload here before gossip or insert. Only the leader replica may commit.
 
-**How it's built.** `ConductorClient` in `base-consensus-node` (`conductor_leader`, commit HTTP or binary). Optional `--conductor.binary-commit`. Operator UX: `basectl conductor status|transfer-leader|pause`.
+**How it's built.** `ConductorClient` in `base-consensus-node` (`conductor_leader`, commit HTTP or binary). Optional `--conductor.binary-commit`. The raft process is an external conductor RPC (`--conductor.rpc`).
 
 **Steps in execution.**
 
-1. **Leader?** — admin_startSequencer checks conductor_leader.
-2. **Commit** — After seal, commit_unsafe_payload before gossip.
-3. **Failover** — Transfer raft leader; the new leader starts sequencing.
+1. **Elect** — Raft among conductors picks one replica as leader.
+2. **Gate start** — admin_startSequencer checks conductor_leader.
+3. **Commit** — Only the leader replica may commit_unsafe_payload, then gossip.
 
-**Questions.**
+#### G · P2P gossip
 
-- ~~**Q-W1** Is the raft conductor implemented in this repo?~~ ✓ No — in-repo client + basectl against an external conductor RPC (2026-08-28).
+**In one line.** The libp2p door: signed unsafe L2 payloads leave the sequencer toward RPC nodes.
 
-#### N · P2P gossip
-
-**In one line.** How unsafe L2 blocks and peers find each other without going through L1.
-
-**What it does.** There are two meshes. Execution uses DevP2P (tx gossip, EL peers on 30303). Consensus uses libp2p gossipsub + discv5 (9222) to flood signed unsafe payloads. Replicas insert gossiped payloads as the unsafe head, then wait for L1 derivation to make them safe.
+**What it does.** How sealed unsafe blocks reach the rest of the fleet without waiting for L1. Consensus uses libp2p gossipsub + discv5 (9222). Execution DevP2P (30303) is a different mesh for txs and EL peers. An RPC node that hears a payload inserts it as unsafe, then waits for derivation to make it safe.
 
 **How it's built.** `base-consensus-gossip`, `base-consensus-disc`, `NetworkActor`. Signer address updates come from L1 SystemConfig. Guide: `docs/guides/P2P.md`. Reachability: `base-telemetry` + `basectl p2p reachability`.
 
@@ -247,10 +269,6 @@ Standalone ZK proving (`just prover up`) is user-funded: `network` pays PROVE on
 2. **Query** — RPC optimism_safeHeadAtL1.
 3. **Rewind** — Reorg/reset clears or rewrites entries.
 
-**Questions.**
-
-- ~~**Q-K1** Can two nodes share one SafeDB file?~~ ✓ No — not multi-process safe (safedb README, 2026-08-28).
-
 ### Ethereum as data availability
 
 #### L · Ethereum L1
@@ -266,10 +284,6 @@ Standalone ZK proving (`just prover up`) is user-funded: `network` pays PROVE on
 1. **Watch** — Poll latest/finalized; confirm-delay the derivation head.
 2. **Inbox** — Accept batcher txs at batch_inbox_address from the batcher key.
 3. **Games** — DisputeGameFactory stores proposals and challenges.
-
-**Questions.**
-
-- ~~**Q-L1** Where do the L1 contracts live?~~ ✓ Outside this repo; addresses come from rollup config / base-common-chains (2026-08-28).
 
 #### A · Batcher
 
@@ -315,6 +329,20 @@ Standalone ZK proving (`just prover up`) is user-funded: `network` pays PROVE on
 2. **Attest** — TEE-signed proposal; verify output root locally.
 3. **Create game** — createWithInitData on L1.
 
+#### T · TEE prover
+
+**In one line.** The enclave job that signs an output-root proposal for the proposer.
+
+**What it does.** The proposer does not invent a signature. It asks this TEE worker for an attestation, then checks the output root locally before posting a dispute game. Same prover-service queue as the ZK path, different backend (nitro enclave).
+
+**How it's built.** `bin/prover/nitro-host` + TEE crates under `crates/proof/tee/`. Sessions go through `base-prover-service`. Guide: `docs/guides/STANDALONE_PROVING.md`.
+
+**Steps in execution.**
+
+1. **Queue** — Proposer inserts a TEE proposal request.
+2. **Attest** — Nitro host claims the job and signs in the enclave.
+3. **Return** — Proposer verifies the output root, then createWithInitData.
+
 #### H · Challenger
 
 **In one line.** Watches in-progress dispute games and posts a challenge when a claim does not match L2.
@@ -329,23 +357,19 @@ Standalone ZK proving (`just prover up`) is user-funded: `network` pays PROVE on
 2. **Validate** — Recompute OutputRoot vs onchain claim.
 3. **Dispute** — Request proof if needed; nullify/challenge; reclaim bonds.
 
-#### Z · Prover service
+#### Z · ZK prover
 
-**In one line.** The job queue that turns a block range into a TEE attestation or a ZK proof.
+**In one line.** The job queue that turns a disputed range into a ZK proof for the challenger.
 
-**What it does.** Challengers and operators do not run SP1 themselves on the hot path. They submit a session; a worker host claims it. ZK workers talk to Succinct network/cluster/dry-run; TEE workers talk to the nitro enclave. `basectl proofs` is the operator door.
+**What it does.** The challenger does not run SP1 on the hot path. It submits a session; a ZK worker claims it (Succinct network, cluster, or dry-run). TEE attestations for new proposals live with the Proposer, not here.
 
-**How it's built.** `base-prover-service` JSON-RPC + postgres (`.zk-prover//`). Workers: `bin/prover/zk-host`, `bin/prover/nitro-host`. Operator: `basectl proofs propose|finalize|submit`. Guide: `docs/guides/STANDALONE_PROVING.md`.
+**How it's built.** `base-prover-service` JSON-RPC + postgres (`.zk-prover//`). Worker: `bin/prover/zk-host`. Operator: `basectl proofs`. Guide: `docs/guides/STANDALONE_PROVING.md`.
 
 **Steps in execution.**
 
-1. **Queue** — Requester inserts proof_requests row.
-2. **Prove** — Worker claims job; ZK or TEE backend.
-3. **Return** — Poll status; submit bytes on L1 if that is the workflow.
-
-**Questions.**
-
-- ~~**Q-Z1** Is ZK required to sequence?~~ ✓ No. Sequencing is Engine+gossip+DA. ZK/TEE proving is the dispute/finality path (2026-08-28).
+1. **Queue** — Challenger inserts a proof_requests row.
+2. **Prove** — ZK host claims the job; Succinct network/cluster/dry-run.
+3. **Return** — Challenger fetches bytes and challenge() on L1.
 
 ## Flows (representative packets)
 
@@ -361,17 +385,16 @@ Payload shapes are what the design implies, not measured traffic.
 | 4 | I → B | inventory | `{"hash":"0xabc…","daBytes":120}` |
 | 5 | B → F | flashblock delta | `{"payload_id":"0x7a…","index":3,"txCount":1}` |
 | 6 | F → R | pending update | `{"tag":"pending","includes":"0xabc…"}` |
-| 7 | B → S | getPayload | `{"payloadId":"0x7a…","blockNumber":42417649}` |
-| 8 | S → W | commit_unsafe_payload | `{"blockHash":"0xseal…","number":42417649}` |
-| 9 | W → S | committed | `{"leader":true}` |
-| 10 | S → N | gossip unsafe | `{"topic":"blocks/v1","signer":"0xseq…"}` |
-| 11 | S → E | insert unsafe | `{"method":"engine_newPayload","hash":"0xseal…"}` |
+| 7 | B → W | commit_unsafe_payload | `{"blockHash":"0xseal…","number":42417649}` |
+| 8 | W → B | committed | `{"leader":true}` |
+| 9 | B → G | gossip unsafe | `{"topic":"blocks/v1","signer":"0xseq…"}` |
+| 10 | B → E | insert unsafe | `{"method":"engine_newPayload","hash":"0xseal…"}` |
 
 ### Batch to L1 and derive
 
 | # | From → To | Packet | Representative payload |
 |---|---|---|---|
-| 1 | S → A | unsafe L2 blocks | `{"first":42417600,"last":42417649}` |
+| 1 | B → A | unsafe L2 blocks | `{"first":42417600,"last":42417649}` |
 | 2 | A → L | blob batch | `{"to":"batch_inbox","da":"blobs","frames":3}` |
 | 3 | L → V | L1 head + inbox data | `{"l1":21200000,"blobs":3}` |
 | 4 | V → E | derived attributes | `{"no_tx_pool":true,"deposits":1,"txsFromBatch":40}` |
@@ -383,8 +406,8 @@ Payload shapes are what the design implies, not measured traffic.
 | # | From → To | Packet | Representative payload |
 |---|---|---|---|
 | 1 | E → O | L2 state for proposal | `{"l2Block":42417000,"outputRoot":"0xout…"}` |
-| 2 | O → Z | TEE proposal request | `{"gameType":"tee","parent":"0xgame…"}` |
-| 3 | Z → O | attestation | `{"outputRoot":"0xout…","valid":true}` |
+| 2 | O → T | TEE proposal request | `{"gameType":"tee","parent":"0xgame…"}` |
+| 3 | T → O | attestation | `{"outputRoot":"0xout…","valid":true}` |
 | 4 | O → L | createWithInitData | `{"factory":"DisputeGameFactory","root":"0xout…"}` |
 | 5 | L → H | IN_PROGRESS game | `{"game":"0xproxy…","claim":"0xout…"}` |
 | 6 | H → E | recompute root | `{"l2Block":42417000}` |
@@ -392,27 +415,21 @@ Payload shapes are what the design implies, not measured traffic.
 | 8 | Z → H | proof bytes | `{"backend":"network","status":"succeeded"}` |
 | 9 | H → L | challenge() | `{"game":"0xproxy…"}` |
 
-## Questions — index
+### Conductor HA
 
-Reference by ID. ✓ resolved (with date) · otherwise open.
-
-- ~~**Q-U1**~~ (U) ✓ No — they are clients of this repo, not in-tree (2026-08-28).
-- **Q-R1** (R) Should the published operator node stay as split EL+CL containers, or is `base rpc` the long-term public shape?
-- ~~**Q-F1**~~ (F) ✓ README still calls it alpha: one-way, no payload inspection (2026-08-28).
-- ~~**Q-E1**~~ (E) ✓ No. This tree is Reth-based Base execution (2026-08-28).
-- ~~**Q-P1**~~ (P) ✓ No. Replicas forward; the sequencer/builder selects (2026-08-28).
-- ~~**Q-B1**~~ (B) ✓ Treated as critical: finalize must still produce a valid payload (BLOCK_PRODUCTION_REVIEW, 2026-08-28).
-- ~~**Q-S1**~~ (S) ✓ The configured sequencer key / signer endpoint; conductor leadership gates start when enabled (2026-08-28).
-- ~~**Q-W1**~~ (W) ✓ No — in-repo client + basectl against an external conductor RPC (2026-08-28).
-- ~~**Q-K1**~~ (K) ✓ No — not multi-process safe (safedb README, 2026-08-28).
-- ~~**Q-L1**~~ (L) ✓ Outside this repo; addresses come from rollup config / base-common-chains (2026-08-28).
-- ~~**Q-Z1**~~ (Z) ✓ No. Sequencing is Engine+gossip+DA. ZK/TEE proving is the dispute/finality path (2026-08-28).
+| # | From → To | Packet | Representative payload |
+|---|---|---|---|
+| 1 | B → W | conductor_leader? | `{"cluster":true}` |
+| 2 | W → B | leader elected | `{"role":"leader"}` |
+| 3 | B → E | forkchoiceUpdated | `{"noTxPool":false}` |
+| 4 | B → W | commit_unsafe_payload | `{"blockHash":"0xseal…"}` |
+| 5 | W → B | committed | `{"role":"leader"}` |
 
 ## What the platform gives vs what we own
 
 **Platform gives:** Reth (execution, Engine API, DevP2P, RPC scaffolding), the OP-stack derivation spec and Engine API, Ethereum L1 + blob DA, libp2p gossipsub + discv5, and an external conductor RPC for HA leader election. `base-common-chains` embeds chain IDs, upgrade timestamps, and genesis.
 
-**We own:** The consensus actor graph (`base-consensus-node`), Flashblocks builder and pending-state RPC, Base txpool/forwarding/ingress, the batcher driver, TEE proposer, ZK/TEE prover service, challenger, `basectl`, and the unified `base` binary.
+**We own:** The consensus actor graph (`base-consensus-node`), Flashblocks builder and pending-state RPC, Base txpool/forwarding/ingress, the batcher driver, TEE proposer + TEE prover, ZK prover, challenger, `basectl`, and the unified `base` binary.
 
 ## Planned filesystem
 
