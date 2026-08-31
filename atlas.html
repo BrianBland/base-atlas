@@ -1,0 +1,711 @@
+<meta charset="utf-8">
+<title>Base Atlas</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+:root{
+  --paper:#E6DFBE; --paper-2:#DCD4AF; --ink:#17170F; --ink-2:#6E6B54; --rule:#B9B293; --ghost:#8E8A70;
+  --hi-bg:#17170F; --hi-fg:#E6DFBE; --face:#EFE9CC; --grid:#CFC8A3;
+  --face-box:#C9D2C4; --side-box:#B4BDAF;
+  --face-tall:#D4C4B8; --side-tall:#BFAEA3;
+  --face-store:#B9D0C8; --side-store:#A4BBB3;
+  --face-cards:#C4C4D4; --side-cards:#AFAFBF;
+  --face-slab:#C0CBD4; --side-slab:#ABB6BF;
+  --face-screen:#B9CED0; --side-screen:#A4B9BB;
+  --face-gate:#D0C4CC; --side-gate:#BBAFB7;
+  --face-job:#D4C9B4; --side-job:#BFB49F;
+  --hull-rpc:rgba(72,88,104,.16); --hull-rpc-ink:#3E4E5C;
+  --hull-seq:rgba(176,112,64,.18); --hull-seq-ink:#8B531F;
+  --hull-batcher:rgba(196,156,48,.26); --hull-batcher-ink:#8F7420;
+  --hull-proposer:rgba(72,108,156,.26); --hull-proposer-ink:#3D5C86;
+  --hull-challenger:rgba(148,84,116,.26); --hull-challenger-ink:#7A4560;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#1E1D15; --paper-2:#26251B; --ink:#E6DFBE; --ink-2:#A8A388; --rule:#4A4838; --ghost:#6E6B54;
+    --hi-bg:#E6DFBE; --hi-fg:#1E1D15; --face:#2A2920; --grid:#33321F;
+    --face-box:#2E342A; --side-box:#252A22;
+    --face-tall:#342C26; --side-tall:#2A241F;
+    --face-store:#283430; --side-store:#212A27;
+    --face-cards:#2C2C36; --side-cards:#24242C;
+    --face-slab:#2A3036; --side-slab:#22272C;
+    --face-screen:#283234; --side-screen:#21292A;
+    --face-gate:#342C32; --side-gate:#2A2429;
+    --face-job:#343024; --side-job:#2A271E;
+    --hull-rpc:rgba(120,140,160,.16); --hull-rpc-ink:#A8B8C8;
+    --hull-seq:rgba(200,140,88,.18); --hull-seq-ink:#E0A070;
+    --hull-batcher:rgba(214,178,70,.28); --hull-batcher-ink:#D4B85A;
+    --hull-proposer:rgba(100,140,190,.28); --hull-proposer-ink:#8AA8D0;
+    --hull-challenger:rgba(176,110,148,.28); --hull-challenger-ink:#C490B0;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#1E1D15; --paper-2:#26251B; --ink:#E6DFBE; --ink-2:#A8A388; --rule:#4A4838; --ghost:#6E6B54;
+  --hi-bg:#E6DFBE; --hi-fg:#1E1D15; --face:#2A2920; --grid:#33321F;
+  --face-box:#2E342A; --side-box:#252A22;
+  --face-tall:#342C26; --side-tall:#2A241F;
+  --face-store:#283430; --side-store:#212A27;
+  --face-cards:#2C2C36; --side-cards:#24242C;
+  --face-slab:#2A3036; --side-slab:#22272C;
+  --face-screen:#283234; --side-screen:#21292A;
+  --face-gate:#342C32; --side-gate:#2A2429;
+  --face-job:#343024; --side-job:#2A271E;
+  --hull-rpc:rgba(120,140,160,.16); --hull-rpc-ink:#A8B8C8;
+  --hull-seq:rgba(200,140,88,.18); --hull-seq-ink:#E0A070;
+  --hull-batcher:rgba(214,178,70,.28); --hull-batcher-ink:#D4B85A;
+  --hull-proposer:rgba(100,140,190,.28); --hull-proposer-ink:#8AA8D0;
+  --hull-challenger:rgba(176,110,148,.28); --hull-challenger-ink:#C490B0;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.55;overflow:hidden}
+#app{display:grid;grid-template-rows:52px 1fr 30px;height:100vh;min-height:600px}
+#top{display:flex;align-items:stretch;border-bottom:1.5px solid var(--ink);overflow:hidden}
+.stat{padding:6px 14px 4px;border-right:1.5px solid var(--ink);min-width:0;white-space:nowrap}
+.stat .k{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+.stat .v{font-size:15px;font-variant-numeric:tabular-nums}
+.stat.grow{flex:1;border-right:none;overflow:hidden}
+#controls{display:flex;gap:8px;align-items:center;padding:0 14px;border-left:1.5px solid var(--ink)}
+button.ctl{font:inherit;font-size:11px;letter-spacing:.06em;text-transform:uppercase;background:var(--paper);color:var(--ink);border:1.5px solid var(--ink);padding:5px 10px;cursor:pointer;box-shadow:2px 2px 0 var(--ink);white-space:nowrap}
+button.ctl:hover{background:var(--face)}
+button.ctl:active{transform:translate(1px,1px);box-shadow:1px 1px 0 var(--ink)}
+button.ctl:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+button.ctl.primary{background:var(--hi-bg);color:var(--hi-fg)}
+button.ctl.primary:hover{background:var(--hi-bg);opacity:.9}
+button.ctl:disabled{opacity:.4;cursor:default;box-shadow:none}
+#main{display:grid;grid-template-columns:232px 1fr 440px;min-height:0}
+#index{border-right:1.5px solid var(--ink);overflow-y:auto;padding:10px 8px 20px}
+#index h4{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);margin:12px 4px 6px;font-weight:500}
+#index h4:first-child{margin-top:2px}
+.ix{display:flex;align-items:flex-start;gap:8px;width:100%;text-align:left;font:inherit;font-size:11.5px;line-height:1.3;background:var(--paper);color:var(--ink);border:1.5px solid var(--ink);padding:7px 8px;margin:0 0 6px;cursor:pointer;box-shadow:2px 2px 0 var(--ink);text-transform:uppercase;letter-spacing:.02em}
+.ix .swatch{width:10px;height:10px;margin-top:3px;flex:none;border:1px solid var(--ink);background:var(--face)}
+.ix .code{color:var(--ink-2);min-width:16px;font-size:10px;padding-top:1px}
+.ix .nm{flex:1}
+.ix .n{color:var(--ink-2);font-size:10.5px;font-variant-numeric:tabular-nums}
+.ix.ghost{border-style:dashed;box-shadow:none;color:var(--ink-2)}
+.ix.later{border-color:var(--rule);box-shadow:none;color:var(--ink-2);opacity:.75}
+.ix.later .n{font-size:9px;letter-spacing:.06em}
+.ix.new{outline:1.5px dashed var(--ink);outline-offset:2px}
+.ix.on{background:var(--hi-bg);color:var(--hi-fg)}
+.ix.on .code,.ix.on .n{color:var(--hi-fg);opacity:.75}
+.ix:hover:not(.on){background:var(--face)}
+.ix:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+#canvasWrap{position:relative;min-width:0;background:var(--paper)}
+#svg{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#svg.dragging{cursor:grabbing}
+#zoom{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px}
+#zoom button{width:30px;height:26px;font:inherit;font-size:14px;background:var(--paper);border:1.5px solid var(--ink);color:var(--ink);cursor:pointer;box-shadow:2px 2px 0 var(--ink)}
+#rail{position:absolute;left:12px;top:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;max-width:calc(100% - 70px)}
+#rail .ch{width:22px;height:22px;font:inherit;font-size:10px;background:var(--paper);border:1.5px solid var(--ink);color:var(--ink);cursor:pointer;padding:0;line-height:1}
+#rail .ch.done{background:var(--face)}
+#rail .ch.on{background:var(--hi-bg);color:var(--hi-fg)}
+#rail .ch.locked{border-style:dashed;color:var(--ink-2)}
+#rail .ch:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+#rail .title{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);margin-left:6px}
+#rail .title b{color:var(--ink);font-weight:500}
+#rail .home{font:inherit;font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:var(--paper);border:1.5px solid var(--ink);color:var(--ink);padding:3px 8px;cursor:pointer}
+#rail .home.on{background:var(--hi-bg);color:var(--hi-fg)}
+#index h4.rh{display:flex;align-items:center;gap:6px}
+#index h4.rh .dot{width:8px;height:8px;border:1px solid var(--ink);flex:none}
+#flowSel{position:absolute;left:12px;bottom:12px;display:none;gap:6px}
+#flowSel button{font:inherit;font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:var(--paper);border:1.5px solid var(--ink);color:var(--ink);padding:3px 8px;cursor:pointer}
+#flowSel button.on{background:var(--hi-bg);color:var(--hi-fg)}
+#tip{position:absolute;pointer-events:none;background:var(--hi-bg);color:var(--hi-fg);font-size:11px;padding:4px 8px;max-width:280px;line-height:1.35;display:none;z-index:5}
+#panel{border-left:1.5px solid var(--ink);display:flex;flex-direction:column;min-height:0}
+#tabs{display:flex;border-bottom:1.5px solid var(--ink)}
+#tabs button{flex:1;font:inherit;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;padding:9px 6px;background:var(--paper);color:var(--ink);border:none;border-right:1.5px solid var(--ink);cursor:pointer}
+#tabs button:last-child{border-right:none}
+#tabs button.on{background:var(--hi-bg);color:var(--hi-fg)}
+#tabs button:focus-visible{outline:2px solid var(--ink);outline-offset:-3px}
+#body{overflow-y:auto;padding:14px 18px 40px;flex:1}
+.eyebrow{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+h1.t{font-size:22px;font-weight:500;line-height:1.2;margin:2px 0 4px;text-wrap:balance}
+.lede{font-size:14.5px;line-height:1.5;margin:0 0 14px;max-width:56ch}
+.sub{color:var(--ink-2);font-size:11px;margin-bottom:14px}
+h3.sec{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);font-weight:500;margin:20px 0 6px;padding-bottom:4px;border-bottom:1.5px solid var(--ink)}
+#body p{margin:0 0 12px;max-width:62ch}
+#body ul{margin:0 0 12px;padding-left:18px;max-width:62ch}
+#body li{margin-bottom:6px}
+mark{background:var(--hi-bg);color:var(--hi-fg);padding:0 3px}
+.chip{display:inline-block;border:1.5px solid var(--ink);padding:1px 6px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;margin:0 6px 6px 0;background:var(--paper);color:var(--ink);font-family:inherit;cursor:pointer}
+.chip.ghost{border-style:dashed;color:var(--ink-2)}
+.chip.static{cursor:default}
+pre{background:var(--face);border:1.5px solid var(--rule);padding:10px 12px;font-size:11px;line-height:1.45;overflow-x:auto;margin:0 0 12px;white-space:pre}
+.step{display:grid;grid-template-columns:24px 1fr;gap:8px;margin:0 0 8px;font-size:12px}
+.step .no{color:var(--ink-2);font-variant-numeric:tabular-nums}
+.step.cur .no{color:var(--ink);font-weight:600}
+.step.cur .tx{background:var(--face);outline:1.5px solid var(--ink);padding:2px 6px}
+.actions{display:flex;gap:8px;margin:14px 0 0;flex-wrap:wrap}
+.pk{border:1.5px solid var(--ink);padding:10px 12px;margin:0 0 12px}
+.pk .lbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+.pk .route{font-size:12px;margin:2px 0 8px}
+details{border-top:1.5px solid var(--rule);margin:8px 0 0;padding:6px 0 0}
+details summary{cursor:pointer;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);list-style:none;display:flex;gap:8px;align-items:center}
+details summary::before{content:'+';display:inline-block;width:12px;color:var(--ink)}
+details[open] summary::before{content:'−'}
+details summary::-webkit-details-marker{display:none}
+details > *:not(summary){margin-top:8px}
+#hint{border-top:1.5px solid var(--ink);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;padding:0 14px;gap:14px;overflow:hidden;white-space:nowrap}
+.q{padding-left:0;list-style:none}
+.q li{position:relative;padding-left:18px}
+.q li::before{content:'?';position:absolute;left:0;top:0;color:var(--ink-2)}
+.q li.res::before{content:'✓'}
+.q li.to::before{content:'→'}
+.q li.res>span,.q li.to>span{color:var(--ink-2);text-decoration:line-through;text-decoration-color:var(--rule)}
+.q li.to>span{text-decoration:none}
+.q .ans{margin-top:2px;padding-left:10px;border-left:1.5px solid var(--ink)}
+.node.is-hover .hover-ring{opacity:1}
+.node.is-sel polygon:not(.hover-ring):not(.halo):not(.sel-fill){stroke-width:2}
+.node .sel-fill{opacity:0}
+.node.is-sel .sel-fill{opacity:.12}
+.node.is-sel .halo{opacity:0;animation:none}
+.node.is-sel .chip-bg,.nlab.is-sel rect{fill:var(--hi-bg)}
+.node.is-sel .chip-tx,.nlab.is-sel text{fill:var(--hi-fg)}
+@keyframes halo{0%{opacity:.9}50%{opacity:.25}100%{opacity:.9}}
+.halo{animation:halo 1.6s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.halo{animation:none}}
+@media (max-width:1100px){#main{grid-template-columns:200px 1fr 360px}}
+</style>
+
+<div id="app">
+  <div id="top">
+    <div id="stats" style="display:flex;min-width:0;flex:1"></div>
+    <div id="controls">
+      <button class="ctl" id="btnBack">◂ Back</button>
+      <button class="ctl primary" id="btnNext">Next ▸</button>
+      <button class="ctl" id="btnFlow">‖ Pause</button>
+      <button class="ctl" id="btnStep">Trace one step</button>
+      <button class="ctl" id="btnReset">Refit</button>
+    </div>
+  </div>
+  <div id="main">
+    <nav id="index" aria-label="Structures"></nav>
+    <div id="canvasWrap">
+      <svg id="svg" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="1.1"/></pattern>
+          <pattern id="hatchLight" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><line x1="0" y1="0" x2="0" y2="7" stroke="currentColor" stroke-width=".8" opacity=".55"/></pattern>
+        </defs>
+        <g id="world"></g>
+      </svg>
+      <div id="rail"></div>
+      <div id="flowSel"></div>
+      <div id="zoom"><button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button></div>
+      <div id="tip"></div>
+    </div>
+    <aside id="panel">
+      <div id="tabs">
+        <button data-tab="what" class="on">What it does</button>
+        <button data-tab="how">How it's built</button>
+      </div>
+      <div id="body"></div>
+    </aside>
+  </div>
+  <div id="hint">
+    <span>network overview is home</span><span>chapters stay on the rail</span><span>click a role for its components</span><span>sequencer wraps rpc</span><span>hover to read</span><span>click to pin</span><span>click a dot to inspect its packet</span>
+  </div>
+</div>
+
+<script>
+const GROUPS = [{"id":"surf","title":"Surfaces"},{"id":"loop","title":"The production loop"},{"id":"mem","title":"What the node remembers"},{"id":"da","title":"Ethereum as data availability"},{"id":"honest","title":"Keeping the chain honest"}];
+const ROLES = [{"id":"rpc","name":"RPC","short":"RPC","code":"RPC","kind":"screen","gx":3.6,"gy":6.4,"w":3,"d":2.4,"h":50,"one":"Anyone-can-run validator node: serve JSON-RPC, hear blocks over P2P, forward txs toward the sequencer.","what":"The public flavor of a Base node. It receives unsafe payloads over gossip, derives safe from L1, serves <code>eth_*</code>, and subscribes to Flashblocks for <code>pending</code>. It inserts a tx into the sequencer when it can; otherwise it forwards toward the cluster. Stock <code>base rpc</code> currently filters forwarding flags — the forward path lives in <code>base-tx-forwarding</code> / ingress.","how":"<code>base rpc</code> embeds EL+CL, or docker-compose split EL+CL. The e2e plate is the ordinary node: RPC, pool, engine, disk, Flashblocks subscribe, gossip, derivation, SafeDB. A sequencer is this plate plus builder, tx ingress, and conductor.","components":["R","P","F","E","D","G","V","K"],"layer":1},{"id":"seq","name":"Sequencer","short":"SEQUENCER","code":"SEQ","kind":"tall","gx":6.6,"gy":0.2,"w":3.2,"d":2.4,"h":64,"one":"An RPC node plus the production extras: tx ingress, Flashblocks builder, and conductor.","what":"A sequencer is a superset of an RPC node. Same engine, disk, gossip, and derivation — plus the door and lock that actually build blocks. Conductor is the per-replica raft lock; only the leader may seal. This map does not draw every replica.","how":"<code>base sequencer</code> embeds EL + Flashblocks builder + CL. Conductor is per replica; raft is conductor-to-conductor.","components":["I","B","W"],"layer":0,"contains":["rpc"]},{"id":"batcher","name":"Batcher","short":"BATCHER","code":"BCH","kind":"job","gx":10.4,"gy":7.2,"w":2.6,"d":2.2,"h":44,"one":"Reads unsafe L2 from the sequencer and posts frames to Ethereum.","what":"Not a p2p node. Connects to sequencer RPC, compresses channels, submits blobs or calldata to the L1 inbox, and throttles the builder if DA backs up.","how":"<code>bin/batcher</code> / <code>base-batcher-service</code>. One job on the e2e map.","components":["A"]},{"id":"proposer","name":"Proposer","short":"PROPOSER","code":"PRP","kind":"job","gx":10.4,"gy":2.6,"w":2.6,"d":2.2,"h":44,"one":"Reads a validator’s L2 state, attests an output root in a TEE, posts a dispute game on L1.","what":"Not the sequencer. Needs an L2 validator (usually an RPC node) plus L1. Parent game is always re-read from chain.","how":"<code>bin/proposer</code> / <code>base-proposer</code>. TEE path under <code>crates/proof/tee/</code>.","components":["O","T"]},{"id":"challenger","name":"Challenger","short":"CHALLENGER","code":"CHL","kind":"gate","gx":10.4,"gy":10.8,"w":2.6,"d":2.2,"h":46,"one":"Watches L1 games, recomputes against a validator, fetches a proof, publishes the challenge.","what":"The ZK prover lives inside this role — a job queue for proof bytes, not a peer. Challenger connects to a validator and to L1. TEE attestations for proposals sit with the Proposer.","how":"<code>bin/challenger</code> / <code>base-challenger</code> plus <code>base-prover-service</code> ZK workers.","components":["H","Z"]}];
+const NETWORK_HOPS = [["U","role:rpc","eth_sendRawTransaction",{"raw":"0x02f8…"},"yx"],["role:rpc","role:seq","insert or forward",{"to":"sequencer"},"xy"],["role:seq","role:rpc","Flashblocks + gossip",{"pending":true,"unsafe":true},"yx"],["role:seq","role:batcher","unsafe L2",{"first":42417600},"xy"],["role:batcher","L","blob batch",{"inbox":"batch_inbox"},"xy"],["role:rpc","role:proposer","L2 state",{"outputRoot":"0xout…"},"xy"],["role:proposer","L","createWithInitData",{"factory":"DisputeGameFactory"},"xy"],["role:rpc","role:challenger","L2 state",{"l2Block":42417000},"yx"],["role:challenger","L","challenge()",{"game":"0xproxy…"},"yx"]];
+const NODES = [{"id":"U","code":"U","name":"Apps and wallets","short":"APPS","group":"surf","surround":true,"gx":-3.2,"gy":7.8,"w":2,"d":2,"h":44,"kind":"screen","net":{"gx":0.2,"gy":6.6,"w":2,"d":2,"h":44},"one":"Wallets, dapps, and scripts that send transactions and read chain state.","what":"Anything that speaks Ethereum JSON-RPC: a browser wallet, a bot, an indexer, or `cast`. It does not run the rollup. It posts a signed transaction or asks for a block, a receipt, or a `pending` view that may already include Flashblocks.","how":"Talks to a public or self-hosted endpoint (`https://mainnet.base.org` or a local `base rpc` / docker-compose EL on <code>:8545</code>). This repo does not ship a wallet or explorer.","steps":[["Sign","User or app signs an L2 transaction."],["Submit","eth_sendRawTransaction (or a bundle) to an RPC URL."],["Watch","Poll receipts or subscribe; pending may come from Flashblocks."]]},{"id":"R","code":"R","name":"JSON-RPC node","short":"RPC NODE","group":"surf","role":"rpc","gx":3,"gy":7.8,"w":2.4,"d":2,"h":48,"kind":"screen","one":"The public face of a Base node: Ethereum JSON-RPC plus rollup and Flashblocks methods.","what":"The process an operator runs to serve the chain. In docker-compose this is two containers (execution + consensus). `base rpc` embeds both in one process and hides sequencer flags. Replica nodes forward user transactions toward the sequencer and subscribe to Flashblocks so `pending` is live.","how":"<code>bin/base</code> (`base rpc`) or <code>docker-compose.yml</code> (`execution-entrypoint` + `consensus-entrypoint`). RPC crates: <code>base-execution-rpc</code>, <code>base-flashblocks</code>, <code>base-consensus-rpc</code> (`optimism_syncStatus`, admin, P2P). Ports 8545/8546 typical.","steps":[["Admit","Accept eth_*, debug_*, optimism_*, flashblock subscriptions."],["Read","Serve canonical state from the execution DB; pending from Flashblocks."],["Forward","Insert into the sequencer when possible; otherwise forward toward ingress. Stock `base rpc` currently filters forwarding flags — the path lives in `base-tx-forwarding` / ingress."]]},{"id":"E","code":"E","name":"Execution engine","short":"EXECUTION","group":"loop","role":"rpc","gx":6.8,"gy":4.6,"w":3,"d":2.2,"h":40,"kind":"slab","one":"The Reth-based EVM that executes transactions and answers the Engine API.","what":"This is the computer that actually runs the block. Consensus never executes bytecode itself — it asks this engine to build or import a payload, then treats the resulting block hash as truth. Same engine on the sequencer and on every replica.","how":"<code>bin/node</code> / <code>base-node-core</code> + <code>base-execution-evm</code> + Base precompiles in <code>base-common-precompiles</code>. Engine types and API builder in <code>base-node-core</code>. Auth Engine API over IPC when embedded, HTTP+JWT when split. Fatal precompile/EVM errors here can halt block production — see <code>docs/guides/BLOCK_PRODUCTION_REVIEW.md</code>.","steps":[["forkchoiceUpdated","Consensus sets head and, on the sequencer, starts a payload build."],["Execute","Apply deposits, then txpool or derived txs, against parent state."],["getPayload / newPayload","Return a sealed payload, or import one from gossip/derivation."]]},{"id":"D","code":"D","name":"Chain store","short":"CHAIN DB","group":"mem","role":"rpc","gx":6.8,"gy":7.8,"w":3,"d":2,"h":26,"kind":"store","one":"The on-disk ledger: headers, bodies, receipts, and state the execution engine reads and writes.","what":"Without this disk, the node is an empty process. Snapshots and `reth-data/` are how operators skip years of sync. It is local to one node; it is not shared consensus.","how":"Reth database under <code>reth-data/</code> (docker-compose default). Snapshots via <code>bin/snapshotter</code>. Safe-head history is a different file — see SafeDB. Gitignores <code>/reth-data/</code>.","steps":[["Open","EL starts and opens the datadir."],["Apply","Each imported or built block writes state, receipts, and indexes."],["Serve","RPC and proofs read historical blocks and storage proofs from here."]]},{"id":"P","code":"P","name":"Transaction pool","short":"TXPOOL","group":"loop","role":"rpc","gx":3,"gy":11,"w":2.4,"d":2,"h":28,"kind":"store","one":"The mempool: valid not-yet-included transactions, ordered for the builder.","what":"When you send a transaction, it sits here until a block (or Flashblock) takes it. Base adds L1-data-fee checks and its own ordering. Replica nodes can drain this pool toward tx ingress.","how":"<code>base-execution-txpool</code>: <code>BaseTransactionValidator</code>, <code>BaseOrdering</code>. Forwarding: <code>base-tx-forwarding</code> (`base_insertValidatedTransaction`). Inspect/clear via <code>basectl txpool</code>.","steps":[["Validate","Signature, nonce, balance, L1 data fee, Base rules."],["Park","Pending vs queued by nonce."],["Select","Builder pulls best txs under gas/DA/metering limits."]]},{"id":"I","code":"I","name":"Tx ingress","short":"TX INGRESS","group":"loop","role":"seq","gx":3,"gy":0.4,"w":2.4,"d":2,"h":40,"kind":"box","one":"The builder-facing JSON-RPC that accepts validated transactions and bundles.","what":"The public RPC is not where searchers and mempool nodes dump inventory into the sequencer. Tx ingress is that door: validate a bundle, meter it, emit an audit event, hand it to the builder connection.","how":"<code>bin/ingress-rpc</code> / <code>ingress-rpc-lib</code>: <code>IngressService</code>, <code>validate_bundle</code>, <code>BuilderConnector</code>, health + metrics. Wire format for pool forwarding is <code>ValidatedTransaction</code> in <code>base-execution-txpool</code>.","steps":[["Accept","JSON-RPC tx or bundle."],["Meter","Ask the builder connector whether it fits current limits."],["Emit","Audit event; builder sees the inventory."]]},{"id":"B","code":"B","name":"Flashblocks builder","short":"BUILDER","group":"loop","role":"seq","gx":6.8,"gy":0.4,"w":3,"d":2.2,"h":42,"kind":"job","one":"Builds the next L2 block in public chunks, then seals one payload for conductor, engine, and gossip.","what":"The producer in the Sequencer role. It streams Flashblocks on the WebSocket as the block fills, then the same job finalizes one canonical payload. That sealed payload is what conductor commits, the engine inserts, and gossip publishes. Empty or underfilled chunks are a production-halt risk if metering or size limits starve the loop.","how":"<code>base-builder-core</code> flashblocks loop; <code>base-builder-publish</code> WebSocket broadcast; metering in <code>base-builder-metering</code>. Embedded by <code>base sequencer</code> (`--flashblocks.port`) or standalone <code>bin/builder</code>. Payload type: <code>FlashblocksPayloadV1</code> in <code>base-common-flashblocks</code>.","steps":[["Start job","Engine forkchoiceUpdated returns a PayloadId for this block."],["Chunk","build_next_flashblock: pick txs, execute, publish delta."],["Seal","Finalize the full payload; commit via conductor, insert in the engine, gossip to the fleet."]]},{"id":"F","code":"F","name":"Flashblocks stream","short":"FLASH WS","group":"surf","role":"rpc","gx":3,"gy":4.6,"w":2.4,"d":2,"h":40,"kind":"screen","one":"The WebSocket door: Flashblock payloads leave the builder toward RPC nodes.","what":"RPC nodes subscribe so `eth_getBlockByNumber(\"pending\")` stays ahead of the sealed block. A proxy sits in front so the sequencer is not crushed by every replica opening a socket.","how":"Publisher: <code>base-builder-publish</code>. Subscriber: <code>FlashblocksSubscriber</code> in <code>base-flashblocks</code>. Fan-out: <code>bin/websocket-proxy</code> (upstream rollup-boost / builder WS; optional Brotli). <code>basectl flashblocks</code> prints JSONL; <code>eth_subscribe(\"newFlashblocks\")</code> on the node.","steps":[["Publish","Builder broadcasts FlashblocksPayloadV1 (index 0 includes base)."],["Proxy","websocket-proxy fans out to replicas."],["Reconcile","FlashblocksState + CanonicalBlockReconciler merge pending with canonical."]]},{"id":"W","code":"W","name":"Conductor","short":"CONDUCTOR","group":"loop","role":"seq","gx":10.6,"gy":0.4,"w":2.4,"d":2,"h":46,"kind":"gate","one":"Per-replica raft lock: only the leader may commit a sealed payload.","what":"Conductor is part of the Sequencer role, not a sibling of the builder. Each replica talks to its own conductor; raft is conductor-to-conductor. The builder hands the sealed payload here before gossip or insert. Only the leader replica may commit.","how":"<code>ConductorClient</code> in <code>base-consensus-node</code> (`conductor_leader`, commit HTTP or binary). Optional <code>--conductor.binary-commit</code>. The raft process is an external conductor RPC (`--conductor.rpc`).","steps":[["Elect","Raft among conductors picks one replica as leader."],["Gate start","admin_startSequencer checks conductor_leader."],["Commit","Only the leader replica may commit_unsafe_payload, then gossip."]]},{"id":"G","code":"G","name":"P2P gossip","short":"GOSSIP","group":"loop","role":"rpc","gx":10.6,"gy":4.6,"w":2.4,"d":2,"h":40,"kind":"box","one":"The libp2p door: signed unsafe L2 payloads leave the sequencer toward RPC nodes.","what":"How sealed unsafe blocks reach the rest of the fleet without waiting for L1. Consensus uses libp2p gossipsub + discv5 (9222). Execution DevP2P (30303) is a different mesh for txs and EL peers. An RPC node that hears a payload inserts it as unsafe, then waits for derivation to make it safe.","how":"<code>base-consensus-gossip</code>, <code>base-consensus-disc</code>, <code>NetworkActor</code>. Signer address updates come from L1 SystemConfig. Guide: <code>docs/guides/P2P.md</code>. Reachability: <code>base-telemetry</code> + <code>basectl p2p reachability</code>.","steps":[["Discover","discv5 ENR / bootnodes."],["Sign & publish","Sequencer publishes NetworkPayloadEnvelope on the timestamp-selected topic."],["Import","Replica engine newPayload + forkchoiceUpdated → new unsafe head."]]},{"id":"L","code":"L","name":"Ethereum L1","short":"ETHEREUM","group":"da","surround":true,"gx":23.6,"gy":6.4,"w":3,"d":2.2,"h":38,"kind":"slab","net":{"gx":18.4,"gy":6.2,"w":3,"d":2.2,"h":38},"one":"The existing chain Base posts data to and derives from — not implemented in this repo.","what":"L1 is the bulletin board and the court. Batches land as blobs or calldata on the inbox. SystemConfig logs can rotate the unsafe-block signer. Finalized L1 blocks finalize derived L2. Dispute games live in L1 contracts.","how":"Operators pass <code>--l1-eth-rpc</code> and <code>--l1-beacon</code> (blob sidecars). L1 watcher in <code>base-consensus-node</code> polls latest (~4s) and finalized, applies <code>verifier_l1_confs</code>, fetches SystemConfig logs. This repo does not host those L1 contracts.","steps":[["Watch","Poll latest/finalized; confirm-delay the derivation head."],["Inbox","Accept batcher txs at batch_inbox_address from the batcher key."],["Games","DisputeGameFactory stores proposals and challenges."]]},{"id":"A","code":"A","name":"Batcher","short":"BATCHER","group":"da","role":"batcher","gx":15.4,"gy":7.5,"w":2.4,"d":2,"h":42,"kind":"job","one":"The scheduled writer that compresses unsafe L2 blocks and posts them to Ethereum.","what":"Until the batcher lands, a block is only gossip. After it lands, anyone can re-derive the same chain from L1. If L1 DA backs up, the batcher throttles the sequencer (`miner_setMaxDASize`) so new blocks stay small enough to catch up.","how":"<code>bin/batcher</code> → <code>base-batcher-service</code> + <code>BatchDriver</code> in <code>base-batcher-core</code>. Frames: <code>base-batcher-encoder</code> / <code>base-blobs</code>. Source: <code>base-batcher-source</code>. Inbox from <code>optimism_rollupConfig</code> unless shadow-mode override. Parity check via <code>--parity-validator-l2-rpc-url</code>.","steps":[["Read","Pull unsafe L2 blocks from the sequencer RPC."],["Frame","Compress into channel frames; pick blob vs calldata."],["Submit","TxManager posts to inbox; confirm; throttle builder if backlog grows."]]},{"id":"V","code":"V","name":"Derivation","short":"DERIVE","group":"da","role":"rpc","gx":10.6,"gy":7.8,"w":2.4,"d":2,"h":40,"kind":"box","one":"The pipeline that turns L1 batches and deposits back into L2 payload attributes.","what":"This is how a replica knows the sequencer was honest: it reads the same L1 data and produces the same blocks. The engine then consolidates those attributes as the safe head. Follow nodes skip this and just copy a remote L2.","how":"<code>base-consensus-derive</code> (`no_std` pipeline, also used in fault-proof VMs): <code>EthereumDataSource</code>, <code>StatefulAttributesBuilder</code>, <code>OnlinePipeline</code>. Actor: <code>DerivationActor</code> state machine (EL sync → deriving → await safe head). Delegation mode polls a remote sync-status instead.","steps":[["Step","pipeline.step() → PreparedAttributes or NotEnoughData."],["Consolidate","Engine forkchoiceUpdated with derived attributes."],["Finalize","When L1 finalizes the inclusion block, mark the derived L2 finalized."]]},{"id":"K","code":"K","name":"Safe head DB","short":"SAFEDB","group":"mem","role":"rpc","gx":6.8,"gy":11,"w":2.4,"d":2,"h":26,"kind":"store","one":"A small local index: which L2 safe head was derived from which L1 block.","what":"RPC asks “what was safe when L1 was N?” This file answers. It is not the chain; it is a bookmark. Two processes must not open the same file.","how":"<code>base-consensus-safedb</code>, redb-backed <code>SafeDB</code>, or <code>DisabledSafeDB</code>. Written by the derivation actor; read for <code>optimism_safeHeadAtL1</code>. Disabled in derivation-delegation mode.","steps":[["Record","On safe-head confirm, store (l1_block → l2_safe_head)."],["Query","RPC optimism_safeHeadAtL1."],["Rewind","Reorg/reset clears or rewrites entries."]]},{"id":"O","code":"O","name":"Output proposer","short":"PROPOSER","group":"honest","role":"proposer","gx":15.4,"gy":2.4,"w":2.4,"d":2,"h":42,"kind":"job","one":"Periodically claims “L2 at this block has this output root,” backed by a TEE signature.","what":"Permissionless observers need a posted root to challenge. The proposer reads L2/L1, asks a TEE for a signed proposal, checks the output root locally, then calls `DisputeGameFactory.createWithInitData`. Parent game is always re-read from chain so two proposers cannot livelock.","how":"<code>bin/proposer</code> / <code>base-proposer</code>. TEE path: nitro host/enclave crates under <code>crates/proof/tee/</code>. Game type + factory from chain config. No cached parent — <code>recover_latest_state()</code> walks the factory (default 5000 entries) or falls back to <code>AnchorStateRegistry</code>.","steps":[["Recover parent","Scan factory for latest matching game_type."],["Attest","TEE-signed proposal; verify output root locally."],["Create game","createWithInitData on L1."]]},{"id":"T","code":"T","name":"TEE prover","short":"TEE PROVER","group":"honest","role":"proposer","gx":18.4,"gy":2.4,"w":2.4,"d":2,"h":42,"kind":"cards","one":"The enclave job that signs an output-root proposal for the proposer.","what":"The proposer does not invent a signature. It asks this TEE worker for an attestation, then checks the output root locally before posting a dispute game. Same prover-service queue as the ZK path, different backend (nitro enclave).","how":"<code>bin/prover/nitro-host</code> + TEE crates under <code>crates/proof/tee/</code>. Sessions go through <code>base-prover-service</code>. Guide: <code>docs/guides/STANDALONE_PROVING.md</code>.","steps":[["Queue","Proposer inserts a TEE proposal request."],["Attest","Nitro host claims the job and signs in the enclave."],["Return","Proposer verifies the output root, then createWithInitData."]]},{"id":"H","code":"H","name":"Challenger","short":"CHALLENGER","group":"honest","role":"challenger","gx":15.4,"gy":12.6,"w":2.4,"d":2,"h":46,"kind":"gate","one":"Watches in-progress dispute games and posts a challenge when a claim does not match L2.","what":"If a proposer (or a ZK claim) is wrong, this process proves it. It recomputes output roots from L2 headers and message-passer proofs, asks the prover service for a proof when needed, and calls `nullify()` / `challenge()` on L1. It also walks bond credits back out.","how":"<code>bin/challenger</code> / <code>base-challenger</code>: scanner → validator → pending proof sessions → submitter → bond claim. Categories: InvalidTeeProposal, FraudulentZkChallenge, InvalidZkProposal.","steps":[["Scan","IN_PROGRESS games from DisputeGameFactory."],["Validate","Recompute OutputRoot vs onchain claim."],["Dispute","Request proof if needed; nullify/challenge; reclaim bonds."]]},{"id":"Z","code":"Z","name":"ZK prover","short":"ZK PROVER","group":"honest","role":"challenger","gx":18.4,"gy":12.6,"w":2.4,"d":2,"h":42,"kind":"cards","one":"The job queue that turns a disputed range into a ZK proof for the challenger.","what":"The challenger does not run SP1 on the hot path. It submits a session; a ZK worker claims it (Succinct network, cluster, or dry-run). TEE attestations for new proposals live with the Proposer, not here.","how":"<code>base-prover-service</code> JSON-RPC + postgres (`.zk-prover/<network>/`). Worker: <code>bin/prover/zk-host</code>. Operator: <code>basectl proofs</code>. Guide: <code>docs/guides/STANDALONE_PROVING.md</code>.","steps":[["Queue","Challenger inserts a proof_requests row."],["Prove","ZK host claims the job; Succinct network/cluster/dry-run."],["Return","Challenger fetches bytes and challenge() on L1."]]}];
+const FLOWS = [{"id":"tx","name":"One user transaction","hops":[["U","R","eth_sendRawTransaction",{"method":"eth_sendRawTransaction","raw":"0x02f8…"},"yx"],["R","P","pool insert",{"hash":"0xabc…","from":"0xuser","nonce":12},"xy"],["P","I","base_insertValidatedTransaction",{"hash":"0xabc…","forwarded":true},"xy"],["I","B","inventory",{"hash":"0xabc…","daBytes":120},"xy"],["B","F","flashblock delta",{"payload_id":"0x7a…","index":3,"txCount":1},"yx"],["F","R","pending update",{"tag":"pending","includes":"0xabc…"},"yx"],["B","W","commit_unsafe_payload",{"blockHash":"0xseal…","number":42417649},"xy"],["W","B","committed",{"leader":true},"yx"],["B","G","gossip unsafe",{"topic":"blocks/v1","signer":"0xseq…"},"yx"],["B","E","insert unsafe",{"method":"engine_newPayload","hash":"0xseal…"},"xy"]]},{"id":"da","name":"Batch to L1 and derive","hops":[["B","A","unsafe L2 blocks",{"first":42417600,"last":42417649},"xy"],["A","L","blob batch",{"to":"batch_inbox","da":"blobs","frames":3},"xy"],["L","V","L1 head + inbox data",{"l1":21200000,"blobs":3},"yx"],["V","E","derived attributes",{"no_tx_pool":true,"deposits":1,"txsFromBatch":40},"yx"],["E","V","safe head",{"l2Safe":42417649,"hash":"0xseal…"},"xy"],["V","K","record safe-at-L1",{"l1":21200000,"l2Safe":42417649},"yx"]]},{"id":"proof","name":"Propose and challenge","hops":[["E","O","L2 state for proposal",{"l2Block":42417000,"outputRoot":"0xout…"},"xy"],["O","T","TEE proposal request",{"gameType":"tee","parent":"0xgame…"},"xy"],["T","O","attestation",{"outputRoot":"0xout…","valid":true},"yx"],["O","L","createWithInitData",{"factory":"DisputeGameFactory","root":"0xout…"},"xy"],["L","H","IN_PROGRESS game",{"game":"0xproxy…","claim":"0xout…"},"yx"],["H","E","recompute root",{"l2Block":42417000},"yx"],["H","Z","challenge proof",{"kind":"InvalidTeeProposal"},"xy"],["Z","H","proof bytes",{"backend":"network","status":"succeeded"},"yx"],["H","L","challenge()",{"game":"0xproxy…"},"xy"]]},{"id":"ha","name":"Conductor HA","hops":[["B","W","conductor_leader?",{"cluster":true},"xy"],["W","B","leader elected",{"role":"leader"},"yx"],["B","E","forkchoiceUpdated",{"noTxPool":false},"xy"],["B","W","commit_unsafe_payload",{"blockHash":"0xseal…"},"xy"],["W","B","committed",{"role":"leader"},"yx"]]}];
+const CH = [{"id":"you","title":"You and the node","reveal":["U","R"],"lede":"Strip everything away and Base is a JSON-RPC URL you already know how to call.","story":"<p>An app signs an L2 transaction and posts it to a node. That node is either the unified <code>base rpc</code> process or the public docker-compose pair. <mark>This repo is the node, not the wallet.</mark></p>","flow":[["U","R","eth_sendRawTransaction",{"raw":"0x02f8…"}],["R","U","tx hash",{"result":"0xabc…"}]]},{"id":"exec","title":"The engine and the disk","reveal":["E","D"],"lede":"RPC is a window. The Reth engine and its datadir are the room behind it.","story":"<p>Every read and every block execution hits the execution engine. Consensus never runs the EVM itself — it speaks the Engine API. <mark>The chain lives on disk in <code>reth-data/</code></mark>, which is why snapshots matter.</p>","flow":[["U","R","eth_getBlockByNumber",{"block":"latest"}],["R","E","header + body",{"number":42417649}],["E","D","read",{"kind":"header","number":42417649}],["D","E","block",{"hash":"0xseal…"}],["E","R","result",{"number":42417649}],["R","U","block json",{"txCount":120}]]},{"id":"pool","title":"Getting into the mempool","reveal":["P","I"],"lede":"A submitted transaction parks in the pool, then (on replicas) is forwarded to the builder door.","story":"<p>The public RPC validates and parks the tx. Replica nodes do not sequence — they <mark>forward validated inventory</mark> to tx ingress, which meters bundles into the builder.</p>","flow":[["U","R","eth_sendRawTransaction",{"raw":"0x02f8…"}],["R","P","insert",{"hash":"0xabc…","nonce":12}],["P","I","base_insertValidatedTransaction",{"hash":"0xabc…"}],["I","P","ack",{"queued":true}]]},{"id":"flash","title":"Flashblocks","reveal":["B","F"],"lede":"The next block is built in public, a chunk at a time, before it has a hash you can finalize.","story":"<p>The builder executes the best pool transactions in sub-second passes and publishes <code>FlashblocksPayloadV1</code> on a WebSocket. RPC nodes reconcile those deltas into <mark><code>pending</code></mark> so wallets do not wait for the 2s seal.</p>","flow":[["P","I","inventory",{"hash":"0xabc…"}],["I","B","select",{"hash":"0xabc…"}],["B","F","flashblock",{"payload_id":"0x7a…","index":3}],["F","R","pending",{"includes":"0xabc…"}],["R","U","eth_getTransactionReceipt",{"status":"pending-in-flashblock"}]]},{"id":"seal","title":"Sealing the block","reveal":["W"],"lede":"The same builder that streamed Flashblocks now seals one payload. Conductor is the lock.","story":"<p>There is no extra Sequencer box. The builder commits through conductor, then the payload hits the engine. <mark>Raft is conductor-to-conductor</mark>; only the leader replica may seal. This map shows one sequencer’s internals.</p>","flow":[["B","W","conductor_leader?",{}],["W","B","leader",{"leader":true}],["B","E","forkchoiceUpdated",{"noTxPool":false}],["B","W","commit_unsafe_payload",{"blockHash":"0xseal…"}],["W","B","committed",{"leader":true}]]},{"id":"net","title":"Telling the rest of the fleet","reveal":["G"],"lede":"Flashblocks and the sealed payload leave the builder toward RPC nodes.","story":"<p>The Flashblocks WebSocket and consensus gossip are how the Sequencer role speaks to RPC nodes. Those nodes take pending chunks from the stream and unsafe heads from gossip. <mark>Safe still requires L1.</mark></p>","flow":[["F","R","flashblocks",{"kind":"ws"}],["B","G","publish unsafe",{"hash":"0xseal…"}],["G","R","import on RPC",{"topic":"blocks/v1"}]]},{"id":"batch","title":"Posting the history to Ethereum","reveal":["L","A"],"lede":"Gossip is fast. Ethereum is the copy of record.","story":"<p>The batcher reads unsafe L2, frames it, and posts blobs (or calldata) to the inbox. If it falls behind, it <mark>throttles what the builder may include</mark> so DA can catch up. L1 contracts are not in this repo.</p>","flow":[["B","A","unsafe range",{"first":42417600,"last":42417649}],["A","L","submit blobs",{"inbox":"batch_inbox","frames":3}],["L","A","receipt",{"l1Block":21200000,"status":1}]]},{"id":"derive","title":"Deriving the safe chain","reveal":["V","K"],"lede":"Every honest node can rebuild the same safe head from L1 data alone.","story":"<p>Derivation pulls inbox data and deposits, builds payload attributes, and asks the engine to consolidate them. The safe-head DB remembers the mapping so <code>optimism_safeHeadAtL1</code> is cheap. <mark>Follow nodes skip this and mirror a remote L2.</mark></p>","flow":[["L","V","inbox + deposits",{"l1":21200000}],["V","E","attributes",{"no_tx_pool":true}],["E","V","safe head",{"l2":42417649}],["V","K","index",{"l1":21200000,"l2Safe":42417649}]]},{"id":"proofs","title":"Proposing and challenging roots","reveal":["O","T","H","Z"],"lede":"L1 also holds court: a TEE-backed proposer posts roots; a challenger and a ZK prover dispute the bad ones.","story":"<p>Sequencing does not wait for a SNARK. The proposer asks the TEE prover for an attestation and opens a dispute game; the challenger can fetch a ZK proof from its own prover. <mark>Two backends, two boxes.</mark></p>","flow":[["E","O","output at block",{"l2":42417000}],["O","T","TEE sign",{"root":"0xout…"}],["T","O","attestation",{"valid":true}],["O","L","createWithInitData",{"root":"0xout…"}],["L","H","game",{"status":"IN_PROGRESS"}],["H","Z","prove if needed",{"kind":"InvalidTeeProposal"}]]},{"id":"all","title":"The whole system","reveal":[],"lede":"Everything at once — pick a flow in the bottom left.","story":"<p>Choose a flow in the bottom left. The Sequencer plate wraps RPC — a sequencer is an RPC node plus tx ingress, builder, and conductor. Ethereum sits at the edge. <mark>Network overview</mark> backs out to the fleet.</p>","flow":null}];
+const HOW_HTML = "<div class=\"eyebrow\">base · node stack</div><h1 class=\"t\">How it's built</h1><div class=\"sub\">a network of roles, one repo, two ways to package a node</div>\n<h3 class=\"sec\">What this repo is</h3>\n<p>The Base rollup implementation: execution (Reth), consensus (derive + sequencer actors), Flashblocks builder, batcher, and the proving/challenger path. The atlas opens on the <b>network overview</b> — five roles plus Apps and L1 — then walks the e2e map. Sequencer is a plate around RPC plus tx ingress, builder, and conductor. Ethereum sits at the edge. Specs live at <code>https://specs.base.org</code>.</p>\n<h3 class=\"sec\">Two node shapes</h3>\n<p><b>Operators today:</b> <code>docker compose up</code> runs split EL (<code>bin/node</code>) and CL (<code>bin/consensus</code>) as in the old <code>base/node</code> image.</p>\n<p><b>Unified:</b> <code>base rpc</code> embeds EL+CL; <code>base sequencer</code> embeds EL + Flashblocks builder + CL. Engine API is auth IPC inside the process.</p>\n<h3 class=\"sec\">Filesystem</h3>\n<pre>bin/base, node, consensus, builder, batcher, proposer, challenger, …\ncrates/{consensus,execution,builder,batcher,proof,common,infra,utilities}\natlas/data.mjs   ← edit this\nCONTEXT.md       ← glossary</pre>\n<h3 class=\"sec\">Not on this map</h3>\n<p><code>basectl</code> (operator TUI/CLI), <code>base-telemetry</code> (P2P reachability), snapshotter, load-tester, sidecrush, shadow-metrics, system tests. They operate the map; they are not the map.</p>";
+const DECISIONS_HTML = "<li><b>Execution client.</b> Reth-based Base EL (<code>bin/node</code>, <code>base-node-core</code>), not op-geth. Engine API over auth IPC when embedded in <code>base</code>.</li><li><b>Consensus composition.</b> Actor-model <code>RollupNode</code> in <code>base-consensus-node</code>: engine, derivation, L1 watcher, network, optional sequencer + RPC. <code>FollowNode</code> skips derivation and mirrors a remote L2.</li><li><b>Public node packaging.</b> Operator <code>docker compose</code> still ships split EL + CL containers. <code>base rpc</code> embeds both in one process and filters sequencer/builder/forwarding flags.</li><li><b>Block production.</b> Sequencer ticks on <code>block_time</code>, builds via Engine <code>forkchoiceUpdated</code> + <code>getPayload</code>, then conductor-commit → gossip → insert. Recovery mode and upgrade blocks force empty payloads.</li><li><b>Preconfirmation.</b> Flashblocks: sub-second payload deltas over WebSocket (<code>FlashblocksPayloadV1</code>), reconciled to the canonical block on the RPC node.</li><li><b>Data availability.</b> Batcher posts frames as blobs or calldata to <code>batch_inbox_address</code>. Shadow mode may override the inbox only when paired with <code>--shadow-mode</code>.</li><li><b>Fault proofs.</b> TEE proposer creates dispute games via <code>DisputeGameFactory.createWithInitData</code>. Challenger + ZK prover service invalidate bad games. Standalone proving is user-funded.</li>";
+const STATS = [{"k":"System","v":"base · node stack"},{"k":"Roles","v":"sequencer · rpc · batcher · proposer · challenger"}];
+const TITLE = "Base";
+
+/* ---------------- CHAPTERS (progressive disclosure) ---------------- */
+/* ---------------- ISO ---------------- */
+const TW=72, TH=36;
+function P(gx,gy,z=0){ return [(gx-gy)*TW/2, (gx+gy)*TH/2 - z]; }
+function pts(a){ return a.map(p=>p.join(',')).join(' '); }
+const byId = Object.fromEntries(NODES.map(n=>[n.id,n]));
+const roles = typeof ROLES==='undefined'?[]:ROLES;
+const roleById = Object.fromEntries(roles.map(r=>[r.id,r]));
+const center = n => [n.gx+n.w/2, n.gy+n.d/2];
+function hopEnd(id){ return sceneNodes.find(x=>x.id===id)||null; }
+function roleNode(r){
+  return {id:'role:'+r.id,code:r.code,name:r.name,short:r.short,gx:r.gx,gy:r.gy,w:r.w,d:r.d,h:r.h,kind:r.kind,one:r.one,what:r.what,how:r.how,isRole:true,roleId:r.id};
+}
+function surroundNode(n){
+  const p=n.net||n;
+  return {...n,gx:p.gx,gy:p.gy,w:p.w??n.w,d:p.d??n.d,h:p.h??n.h};
+}
+function roleOwns(roleId, id){
+  const r=roleById[roleId]; if(!r) return false;
+  return (r.components||[]).includes(id);
+}
+const HULL_PAD=0.55, HULL_RIM=0.45;
+function padHull(ns, pad=HULL_PAD){
+  if(!ns.length) return null;
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  ns.forEach(n=>{x0=Math.min(x0,n.gx-pad);y0=Math.min(y0,n.gy-pad);x1=Math.max(x1,n.gx+n.w+pad);y1=Math.max(y1,n.gy+n.d+pad);});
+  return [[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+}
+function roleOwnNodes(r){ return sceneNodes.filter(n=>(r.components||[]).includes(n.id)); }
+function roleOwnedNodes(r){
+  const ids=new Set(r.components||[]);
+  (r.contains||[]).forEach(cid=>{ (roleById[cid]?.components||[]).forEach(id=>ids.add(id)); });
+  return sceneNodes.filter(n=>ids.has(n.id));
+}
+function polyPath(poly){ return 'M'+poly.map(p=>P(p[0],p[1],0).join(',')).join('L')+'Z'; }
+const NS='http://www.w3.org/2000/svg';
+const el=(t,a={},...kids)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);kids.forEach(k=>e.appendChild(k));return e;};
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+/* ---------------- STATE ---------------- */
+const S = { ch:0, view:'network', inside:null, selected:null, hover:null, tab:'what', playing:true, tx:0, ty:0, k:1, packets:[], selPacket:null, hoverPacket:null, flowSel:(typeof FLOWS!=='undefined'&&FLOWS[0]?FLOWS[0].id:'turn'), maxCh:0 };
+const svg=document.getElementById('svg'), world=document.getElementById('world'), tip=document.getElementById('tip'), body=document.getElementById('body');
+let sceneNodes=[], sceneHops=[];
+const revealedIds=()=>{ if(S.ch>=CH.length-1) return NODES.map(n=>n.id); const s=new Set(); for(let i=0;i<=S.ch;i++) CH[i].reveal.forEach(id=>s.add(id)); return [...s]; };
+const isNew=id=>S.view==='world'&&S.ch<CH.length-1 && CH[S.ch].reveal.includes(id);
+const revealChapterOf=id=>{ for(let i=0;i<CH.length-1;i++) if(CH[i].reveal.includes(id)) return i; return CH.length-1; };
+
+/* ---------------- SCENES ---------------- */
+function buildScene(){
+  if(S.view==='network') return buildNetworkScene();
+  if(S.view==='inside') return;
+  return buildWorldScene();
+}
+function buildNetworkScene(){
+  sceneNodes=[...roles.map(roleNode), ...NODES.filter(n=>n.surround).map(surroundNode)];
+  sceneHops=[];
+  (typeof NETWORK_HOPS==='undefined'?[]:NETWORK_HOPS).forEach((h,i)=>sceneHops.push({flow:'net',idx:i,from:h[0],to:h[1],label:h[2],payload:h[3],bend:h[4]||(i%2?'yx':'xy')}));
+}
+function buildWorldScene(){
+  const ids=new Set(revealedIds());
+  sceneNodes=NODES.filter(n=>ids.has(n.id));
+  sceneHops=[];
+  const vis=new Set(sceneNodes.map(n=>n.id));
+  const keep=h=>vis.has(h[0])&&vis.has(h[1]);
+  const c=CH[S.ch];
+  if(c.flow){ c.flow.filter(keep).forEach((h,i)=>{ let bend=bendFor(h[0],h[1]); const rev=c.flow.findIndex(x=>x[0]===h[1]&&x[1]===h[0]); if(rev>-1&&rev<i) bend=bend==='xy'?'yx':'xy'; sceneHops.push({flow:'ch',idx:i,from:h[0],to:h[1],label:h[2],payload:h[3],bend}); }); }
+  else { FLOWS.forEach(f=>{ if(S.flowSel!=='both'&&f.id!==S.flowSel)return; f.hops.filter(keep).forEach((h,i)=>sceneHops.push({flow:f.id,idx:i,from:h[0],to:h[1],label:h[2],payload:h[3],bend:h[4]||'xy'})); }); }
+}
+function bendFor(a,b){ const t=FLOWS[0].hops.find(h=>h[0]===a&&h[1]===b)||FLOWS[1].hops.find(h=>h[0]===a&&h[1]===b); return t?(t[4]||'xy'):'yx'; }
+function buildInsideScene(n){
+  if(n.members&&n.members.length){
+    sceneNodes=n.members.map(m=>({...m,inside:true,group:n.group}));
+    sceneHops=[];
+    (n.insideFlow||[]).forEach((h,i)=>{ sceneHops.push({flow:'inside',idx:i,from:h[0],to:h[1],label:h[2],payload:h[3],bend:h[4]||(i%2?'yx':'xy')}); });
+    return;
+  }
+  const steps=n.steps||[]; sceneNodes=steps.map((s,i)=>({id:'s'+i,code:String(i+1),name:s[0],short:s[0],desc:s[1],gx:2+i*3.4,gy:2+i*0.6,w:2,d:2,h:34,inside:true,step:true}));
+  sceneHops=[]; for(let i=0;i<steps.length-1;i++) sceneHops.push({flow:'inside',idx:i,from:'s'+i,to:'s'+(i+1),label:steps[i][0]+' → '+steps[i+1][0],payload:{step:i+1,handsOff:steps[i+1][0]},bend:'xy'});
+}
+function hopPath(h){
+  const A=hopEnd(h.from), B=hopEnd(h.to); if(!A||!B) return null;
+  const [ax,ay]=center(A), [bx,by]=center(B);
+  const finish=g=>{
+    const grid=g.filter((p,i,arr)=>i===0||p[0]!==arr[i-1][0]||p[1]!==arr[i-1][1]);
+    const scr=grid.map(p=>P(p[0],p[1],0)); let len=0; const seg=[];
+    for(let i=1;i<scr.length;i++){const l=Math.hypot(scr[i][0]-scr[i-1][0],scr[i][1]-scr[i-1][1]);seg.push(l);len+=l;}
+    return {grid,scr,seg,len};
+  };
+  if(Array.isArray(h.bend)) return finish([[ax,ay],...h.bend,[bx,by]]);
+  return finish(routeOrtho(A,B,h.bend));
+}
+function nodeFoot(n,pad=0){ return {x0:n.gx-pad,y0:n.gy-pad,x1:n.gx+n.w+pad,y1:n.gy+n.d+pad}; }
+function segHits(a,b,r){
+  const eps=0.04;
+  if(Math.abs(a[0]-b[0])<eps){
+    const x=a[0], y0=Math.min(a[1],b[1]), y1=Math.max(a[1],b[1]);
+    return x>r.x0+eps && x<r.x1-eps && y1>r.y0+eps && y0<r.y1-eps;
+  }
+  if(Math.abs(a[1]-b[1])<eps){
+    const y=a[1], x0=Math.min(a[0],b[0]), x1=Math.max(a[0],b[0]);
+    return y>r.y0+eps && y<r.y1-eps && x1>r.x0+eps && x0<r.x1-eps;
+  }
+  return false;
+}
+function pathHits(pts, skip){
+  const blocks=sceneNodes.filter(n=>!skip.has(n.id)&&!n.inside&&!n.step);
+  let n=0;
+  for(let i=0;i<pts.length-1;i++) for(const b of blocks) if(segHits(pts[i],pts[i+1],nodeFoot(b))) n++;
+  return n;
+}
+function pathLen(pts){ let n=0; for(let i=1;i<pts.length;i++) n+=Math.abs(pts[i][0]-pts[i-1][0])+Math.abs(pts[i][1]-pts[i-1][1]); return n; }
+function routeOrtho(A,B,prefer){
+  const [ax,ay]=center(A), [bx,by]=center(B);
+  const skip=new Set([A.id,B.id]);
+  const cands=[];
+  const add=pts=>{ const p=pts.filter((q,i,arr)=>i===0||q[0]!==arr[i-1][0]||q[1]!==arr[i-1][1]); cands.push(p); };
+  add([[ax,ay],[bx,ay],[bx,by]]);
+  add([[ax,ay],[ax,by],[bx,by]]);
+  const m=3.2, xLo=Math.min(ax,bx)-m, xHi=Math.max(ax,bx)+m, yLo=Math.min(ay,by)-m, yHi=Math.max(ay,by)+m;
+  const xs=new Set([ax,bx,(ax+bx)/2]), ys=new Set([ay,by,(ay+by)/2]);
+  sceneNodes.forEach(n=>{
+    if(skip.has(n.id)||n.inside||n.step) return;
+    const g=0.4;
+    [n.gx-g, n.gx+n.w+g].forEach(x=>{ if(x>=xLo&&x<=xHi) xs.add(x); });
+    [n.gy-g, n.gy+n.d+g].forEach(y=>{ if(y>=yLo&&y<=yHi) ys.add(y); });
+  });
+  const XL=[...xs], YL=[...ys];
+  XL.forEach(x=>add([[ax,ay],[x,ay],[x,by],[bx,by]]));
+  YL.forEach(y=>add([[ax,ay],[ax,y],[bx,y],[bx,by]]));
+  XL.forEach(x=>YL.forEach(y=>{
+    add([[ax,ay],[x,ay],[x,y],[bx,y],[bx,by]]);
+    add([[ax,ay],[ax,y],[x,y],[x,by],[bx,by]]);
+  }));
+  const score=p=>({hits:pathHits(p,skip), corners:p.length, len:pathLen(p), prefer:(prefer==='xy'&&p.length===3&&p[1][0]===bx&&p[1][1]===ay)||(prefer==='yx'&&p.length===3&&p[1][0]===ax&&p[1][1]===by)?0:1});
+  cands.sort((a,b)=>{
+    const sa=score(a), sb=score(b);
+    return sa.hits-sb.hits || sa.prefer-sb.prefer || sa.corners-sb.corners || sa.len-sb.len;
+  });
+  return cands[0]||[[ax,ay],[bx,by]];
+}
+function pointAt(path,t){ let d=t*path.len; for(let i=0;i<path.seg.length;i++){ if(d<=path.seg[i]||i===path.seg.length-1){const u=path.seg[i]?Math.min(1,d/path.seg[i]):1;const a=path.scr[i],b=path.scr[i+1];return [a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u];} d-=path.seg[i]; } return path.scr[0]; }
+
+/* ---------------- RENDER ---------------- */
+function render(){
+  world.innerHTML='';
+  const gg=el('g',{opacity:.55}); const R=[-4,26];
+  for(let i=R[0];i<=R[1];i+=2){ const a=P(i,R[0]),b=P(i,R[1]);gg.appendChild(el('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'var(--grid)','stroke-width':.6})); const c=P(R[0],i),d=P(R[1],i);gg.appendChild(el('line',{x1:c[0],y1:c[1],x2:d[0],y2:d[1],stroke:'var(--grid)','stroke-width':.6})); }
+  world.appendChild(gg);
+  const showHulls=S.view==='network'||(S.view==='world'&&S.ch>=CH.length-1);
+  if(showHulls) drawRoleHulls();
+  const hg=el('g'); world.appendChild(hg);
+  const mainFlow=f=>f==='turn'||f==='ch'||f==='inside'||f==='net';
+  sceneHops.forEach(h=>{ h.path=hopPath(h); if(!h.path)return; const ghost=byId[h.from]?.ghost||byId[h.to]?.ghost;
+    const pl=el('polyline',{points:pts(h.path.scr),fill:'none',stroke:'var(--ink)','stroke-width':mainFlow(h.flow)?1.4:1,opacity:mainFlow(h.flow)&&!ghost?1:.7});
+    if(!mainFlow(h.flow)||ghost)pl.setAttribute('stroke-dasharray','3 3'); hg.appendChild(pl);
+    h.path.scr.slice(1,-1).forEach(p=>hg.appendChild(el('polygon',{points:pts([[p[0],p[1]-3.5],[p[0]+3.5,p[1]],[p[0],p[1]+3.5],[p[0]-3.5,p[1]]]),fill:'var(--ink)'})));
+  });
+  const ng=el('g'); world.appendChild(ng);
+  [...sceneNodes].sort((a,b)=>(a.gx+a.gy+a.w+a.d)-(b.gx+b.gy+b.w+b.d)).forEach(n=>ng.appendChild(drawNode(n)));
+  const lg=el('g'); world.appendChild(lg); sceneNodes.forEach(n=>lg.appendChild(drawLabel(n)));
+  if(showHulls) drawRoleLabels();
+  world.appendChild(el('g',{id:'pkts'})); drawPackets(); renderRail();
+}
+function drawLabel(n){
+  const g=el('g',{class:'nlab'+(S.selected===n.id?' is-sel':''),style:'cursor:pointer','data-id':n.id});
+  const b=P(n.gx+n.w, n.gy+n.d, 0); const txt=(n.short||n.name).toUpperCase(); const w=txt.length*6.6+10; const y=b[1]+9;
+  const dim=n.ghost&&!n.inside;
+  g.appendChild(el('rect',{x:b[0]-w/2,y:y,width:w,height:14,fill:'var(--paper)',stroke:dim?'var(--ghost)':'var(--ink)','stroke-width':.9,'stroke-dasharray':dim?'3 2':'none'}));
+  const t=el('text',{x:b[0],y:y+10.5,'text-anchor':'middle','font-size':'9','font-family':'var(--mono)','letter-spacing':'.06em',fill:dim?'var(--ink-2)':'var(--ink)','font-weight':'500'}); t.textContent=txt; g.appendChild(t);
+  g.addEventListener('pointerenter',e=>{setHover(n.id,e,n);});
+  g.addEventListener('pointerleave',()=>setHover(null));
+  g.addEventListener('click',e=>{e.stopPropagation();select(n.id);});
+  return g;
+}
+function kindOf(n){ return n.kind||'box'; }
+function faceFill(n){ return n.ghost?'none':`var(--face-${kindOf(n)})`; }
+function sideFill(n){ return n.ghost?'none':`var(--side-${kindOf(n)})`; }
+function paintHover(){
+  world.querySelectorAll('g.node').forEach(g=>g.classList.toggle('is-hover', g.getAttribute('data-id')===S.hover));
+}
+function paintSelection(){
+  world.querySelectorAll('g.node, g.nlab').forEach(g=>g.classList.toggle('is-sel', g.getAttribute('data-id')===S.selected));
+}
+function drawRoleHulls(){
+  [...roles].sort((a,b)=>(a.layer||0)-(b.layer||0)).forEach(r=>{
+    const poly=roleHullPoly(r); if(!poly) return;
+    const fill=`var(--hull-${r.id})`, ink=`var(--hull-${r.id}-ink)`;
+    const hole=S.view!=='network'&&(r.contains||[]).map(id=>roleHullPoly(roleById[id])).find(Boolean);
+    if(hole){
+      const p=el('path',{d:polyPath(poly)+polyPath(hole),fill,stroke:'none','fill-rule':'evenodd',style:'pointer-events:none;fill-rule:evenodd'});
+      world.appendChild(p);
+    } else {
+      world.appendChild(el('polygon',{points:pts(poly.map(p=>P(p[0],p[1],0))),fill,stroke:'none',style:'pointer-events:none'}));
+    }
+    world.appendChild(el('polygon',{points:pts(poly.map(p=>P(p[0],p[1],0))),fill:'none',stroke:ink,'stroke-width':1.15,style:'pointer-events:none'}));
+  });
+}
+function roleHullPoly(r){
+  if(!r) return null;
+  if(S.view==='network'){
+    const n=sceneNodes.find(x=>x.roleId===r.id);
+    return n?padHull([n],0.7):null;
+  }
+  const own=roleOwnNodes(r);
+  if(r.contains&&r.contains.length){
+    const inner=roleOwnedNodes(r).filter(n=>!(r.components||[]).includes(n.id));
+    const extra=own.length?padHull(own,HULL_PAD+HULL_RIM):null;
+    const nest=inner.length?padHull(inner,HULL_PAD+HULL_RIM):null;
+    if(extra&&nest){
+      const x0=Math.min(extra[0][0],nest[0][0]), y0=Math.min(extra[0][1],nest[0][1]);
+      const x1=Math.max(extra[1][0],nest[1][0]), y1=Math.max(extra[2][1],nest[2][1]);
+      return [[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+    }
+    return extra||nest;
+  }
+  return own.length?padHull(own,HULL_PAD):null;
+}
+function drawRoleLabels(){
+  roles.forEach(r=>{
+    const poly=roleHullPoly(r); if(!poly) return;
+    let x,y;
+    if(r.contains){
+      const extras=roleOwnNodes(r);
+      const x0=Math.min(...poly.map(p=>p[0]));
+      const y0=extras.length?Math.min(...extras.map(n=>n.gy)):Math.min(...poly.map(p=>p[1]));
+      [x,y]=P(x0+0.15,y0,0);
+    } else {
+      const x0=Math.min(...poly.map(p=>p[0])), y0=Math.min(...poly.map(p=>p[1]));
+      [x,y]=P(x0+0.12, y0+0.15, 0);
+    }
+    const t=el('text',{x:x+2,y:y+14,'text-anchor':'start','font-size':'9','font-family':'var(--mono)','letter-spacing':'.18em',fill:`var(--hull-${r.id}-ink)`,style:'pointer-events:none'});
+    t.textContent=r.short; world.appendChild(t);
+  });
+}
+function nodeIdAt(x,y){
+  for(const el of document.elementsFromPoint(x,y)){
+    const g=el.closest?.('g.node, g.nlab');
+    if(g) return g.getAttribute('data-id');
+  }
+  return null;
+}
+function setHover(id, ev, n){
+  if(S.hover===id){ if(ev&&n) moveTip(ev); return; }
+  S.hover=id;
+  paintHover();
+  if(id&&n&&ev) showTip(ev,n); else hideTip();
+  if(!S.selected && S.selPacket==null) renderPanel();
+}
+function drawNode(n){
+  const g=el('g',{class:'node'+(S.hover===n.id?' is-hover':'')+(S.selected===n.id?' is-sel':''),style:'cursor:pointer','data-id':n.id});
+  const {gx,gy,w,d,h}=n; const fresh=!n.inside&&isNew(n.id);
+  const sw=1.2, dash=n.ghost?'4 3':null, face=faceFill(n), side=sideFill(n);
+  const face3=(p,fill,hatch,extra={})=>{const poly=el('polygon',{points:pts(p),fill:fill,stroke:'var(--ink)','stroke-width':sw,'stroke-linejoin':'round',...extra});if(dash)poly.setAttribute('stroke-dasharray',dash);g.appendChild(poly);if(hatch&&!n.ghost){g.appendChild(el('polygon',{points:pts(p),fill:'url(#'+hatch+')',style:'color:var(--ink)',stroke:'none'}));}};
+  const box=(z0,z1,hatchTop)=>{ face3([P(gx,gy+d,z0),P(gx+w,gy+d,z0),P(gx+w,gy+d,z1),P(gx,gy+d,z1)],side,'hatch'); face3([P(gx+w,gy,z0),P(gx+w,gy+d,z0),P(gx+w,gy+d,z1),P(gx+w,gy,z1)],side,'hatch'); face3([P(gx,gy,z1),P(gx+w,gy,z1),P(gx+w,gy+d,z1),P(gx,gy+d,z1)],face,hatchTop||null); };
+  const kind=n.kind||'box';
+  if(kind==='store'){ const L=3, gap=3, lh=(h-gap*(L-1))/L; for(let i=0;i<L;i++){ const z0=i*(lh+gap); box(z0,z0+lh,null);} }
+  else if(kind==='cards'){ const L=5, lh=h/L; for(let i=0;i<L;i++) box(i*lh,(i+1)*lh,null); }
+  else if(kind==='slab'){ box(0,h,'hatchLight'); }
+  else if(kind==='screen'){ box(0,h,null); const inset=.3; if(!n.ghost){ const scr=[P(gx+inset,gy+inset,h),P(gx+w-inset,gy+inset,h),P(gx+w-inset,gy+d-inset,h),P(gx+inset,gy+d-inset,h)]; g.appendChild(el('polygon',{points:pts(scr),fill:'var(--paper)',stroke:'var(--ink)','stroke-width':.9})); for(let i=1;i<=3;i++){const a=P(gx+inset+.2,gy+inset+i*.4,h),b=P(gx+w-inset-.4-(i===3?.5:0),gy+inset+i*.4,h);g.appendChild(el('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'var(--ink)','stroke-width':.8,opacity:.7}));} } }
+  else if(kind==='gate'){ box(0,h,null); if(!n.ghost){ const z0=h*.55,z1=h*.75; const band=[[P(gx,gy+d,z0),P(gx+w,gy+d,z0),P(gx+w,gy+d,z1),P(gx,gy+d,z1)],[P(gx+w,gy,z0),P(gx+w,gy+d,z0),P(gx+w,gy+d,z1),P(gx+w,gy,z1)]]; band.forEach(p=>g.appendChild(el('polygon',{points:pts(p),fill:'var(--ink)',opacity:.85,stroke:'none'}))); } }
+  else if(kind==='tall'){ box(0,h,null); if(!n.ghost){ // roof ridge line on top to read as "the brain"
+      const c=P(gx+w/2,gy+d/2,h); const a=P(gx,gy+d,h),b=P(gx+w,gy,h); g.appendChild(el('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'var(--ink)','stroke-width':.8,opacity:.5})); } }
+  else if(kind==='job'){ box(0,h,'hatchLight'); }
+  else { box(0,h,null); }
+  const top=[P(gx,gy,h),P(gx+w,gy,h),P(gx+w,gy+d,h),P(gx,gy+d,h)];
+  g.appendChild(el('polygon',{class:'sel-fill',points:pts(top),fill:'var(--ink)',stroke:'var(--ink)','stroke-width':2.5}));
+  g.appendChild(el('polygon',{class:'hover-ring',points:pts(top),fill:'none',stroke:'var(--ink)','stroke-width':1.8,opacity:0}));
+  if(fresh){ g.appendChild(el('polygon',{class:'halo',points:pts([P(gx-.35,gy-.35,0),P(gx+w+.35,gy-.35,0),P(gx+w+.35,gy+d+.35,0),P(gx-.35,gy+d+.35,0)]),fill:'none',stroke:'var(--ink)','stroke-width':1.4,'stroke-dasharray':'4 3'})); }
+  const c=P(gx+w/2,gy+d/2,h); const chipW=Math.max(16,(n.code||'').length*7+8);
+  g.appendChild(el('rect',{class:'chip-bg',x:c[0]-chipW/2,y:c[1]-8,width:chipW,height:14,fill:'var(--paper)',stroke:'var(--ink)','stroke-width':1}));
+  const t=el('text',{class:'chip-tx',x:c[0],y:c[1]+3,'text-anchor':'middle','font-size':'9','font-family':'var(--mono)',fill:'var(--ink)','font-weight':'600'}); t.textContent=n.code; g.appendChild(t);
+  g.addEventListener('pointerenter',e=>{setHover(n.id,e,n);});
+  g.addEventListener('pointermove',e=>moveTip(e));
+  g.addEventListener('pointerleave',()=>setHover(null));
+  g.addEventListener('click',e=>{e.stopPropagation();select(n.id);});
+  g.addEventListener('dblclick',e=>{e.stopPropagation(); if(n.isRole){ openRole(n.roleId); return; } if(!n.inside) goInside(n.id);});
+  return g;
+}
+
+/* ---------------- PACKETS ---------------- */
+function initPackets(){ S.packets=[]; const flows=[...new Set(sceneHops.map(h=>h.flow))]; flows.forEach(f=>S.packets.push({flow:f,hop:0,t:0,speed:.5,pause:0})); S.selPacket=null; }
+function hopsOf(flow){ return sceneHops.filter(h=>h.flow===flow); }
+function drawPackets(){
+  const pg=world.querySelector('#pkts'); if(!pg)return; pg.innerHTML='';
+  S.packets.forEach((p,i)=>{ const hs=hopsOf(p.flow); const h=hs[p.hop]; if(!h||!h.path)return; const [x,y]=pointAt(h.path,p.t);
+    const isSel=S.selPacket===i; const g=el('g',{class:'pkt',style:'cursor:pointer'});
+    if(isSel) g.appendChild(el('circle',{cx:x,cy:y,r:11,fill:'none',stroke:'var(--ink)','stroke-width':1.2,'stroke-dasharray':'2 2'}));
+    g.appendChild(el('circle',{cx:x,cy:y,r:5.5,fill:'var(--ink)',stroke:'var(--paper)','stroke-width':1.6}));
+    if(isSel||S.hoverPacket===i||S.view!=='world'||S.ch<CH.length-1){ const lbl=el('text',{x:x+10,y:y-8,'font-size':'10','font-family':'var(--mono)',fill:'var(--ink)','font-weight':'500'}); lbl.textContent=h.label; g.appendChild(el('rect',{x:x+7,y:y-19,width:h.label.length*6.4+6,height:14,fill:'var(--paper)',stroke:'var(--ink)','stroke-width':.8})); g.appendChild(lbl); }
+    g.addEventListener('click',e=>{e.stopPropagation(); if(nodeIdAt(e.clientX,e.clientY)) return; S.selPacket=i;S.playing=false;syncFlowBtn();renderPanel();drawPackets();});
+    g.addEventListener('mouseenter',()=>{S.hoverPacket=i;drawPackets();});
+    g.addEventListener('mouseleave',()=>{S.hoverPacket=null;drawPackets();});
+    pg.appendChild(g);
+  });
+}
+let last=0;
+function tick(ts){ const dt=Math.min(.05,(ts-last)/1000||0); last=ts; tweenTick(); if(S.playing){ S.packets.forEach(p=>advance(p,dt)); drawPackets(); if(S.selPacket!=null) renderPanel(); } requestAnimationFrame(tick); }
+function advance(p,dt){ const hs=hopsOf(p.flow); if(!hs.length)return; if(p.pause>0){p.pause-=dt;return;} const h=hs[p.hop]; if(!h||!h.path){p.hop=(p.hop+1)%hs.length;return;} p.t+=dt*p.speed*(320/Math.max(120,h.path.len)); if(p.t>=1){p.t=0;p.hop=(p.hop+1)%hs.length;p.pause=(p.hop===0?1.2:.35);} }
+function stepOnce(){ S.playing=false; syncFlowBtn(); let i=S.selPacket??0; const p=S.packets[i]; if(!p)return; const hs=hopsOf(p.flow); p.hop=(p.hop+1)%hs.length; p.t=.5; p.pause=0; S.selPacket=i; drawPackets(); renderPanel(); }
+function syncFlowBtn(){ document.getElementById('btnFlow').textContent = S.playing?'‖ Pause':'▸ Play'; }
+requestAnimationFrame(tick);
+
+/* ---------------- PANEL ---------------- */
+function nodeChip(id){ const n=byId[id]; return `<button class="chip${n.ghost?' ghost':''}" onclick="select('${id}')">${esc(n.code)} · ${esc(n.name)}</button>`; }
+function flowNameOf(flow){
+  if(flow==='ch') return CH[S.ch].title;
+  if(flow==='inside') return 'inside '+(byId[S.inside]||{}).name;
+  if(flow==='net') return 'the network';
+  return (FLOWS.find(f=>f.id===flow)||{}).name;
+}
+function renderPanel(){
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===S.tab));
+  if(S.selPacket!=null && S.packets[S.selPacket]){ const p=S.packets[S.selPacket]; const hs=hopsOf(p.flow); const h=hs[p.hop];
+    const A=hopEnd(h.from), B=hopEnd(h.to);
+    body.innerHTML=`<div class="eyebrow">Data packet · ${esc(flowNameOf(p.flow))} · hop ${p.hop+1} of ${hs.length}</div><h1 class="t">${esc(h.label)}</h1>
+    <div class="pk"><div class="lbl">Route</div><div class="route">${esc(A.code)} ${esc(A.name)} &nbsp;→&nbsp; ${esc(B.code)} ${esc(B.name)}</div><div class="lbl">Payload (representative)</div><pre>${esc(JSON.stringify(h.payload,null,2))}</pre></div>
+    <p>Payload shapes are what the design implies, not measured traffic.</p>
+    <div class="actions"><button class="ctl" onclick="stepOnce()">Trace one step</button><button class="ctl" onclick="S.selPacket=null;S.playing=true;syncFlowBtn();renderPanel();drawPackets()">Release & play</button>${B&&!B.isRole?`<button class="ctl" onclick="select('${esc(B.id)}')">Open ${esc(B.code)}</button>`:''}</div>`; return; }
+  const id=S.selected??S.hover; const n=id?sceneNodes.find(x=>x.id===id)||(S.view==='world'?byId[id]:null):null;
+  if(!n){ renderHomePanel(); return; }
+  if(n.inside&&n.step){ const parent=byId[S.inside]; const i=+n.id.slice(1);
+    body.innerHTML=`<div class="eyebrow">Inside ${esc(parent.code)} · ${esc(parent.name)} · step ${i+1} of ${parent.steps.length}</div><h1 class="t">${esc(n.name)}</h1><p class="lede">${esc(n.desc)}</p>
+    <h3 class="sec">All steps</h3>${parent.steps.map((s,j)=>`<div class="step ${j===i?'cur':''}"><div class="no">${j+1}</div><div class="tx"><b>${esc(s[0])}</b> — ${esc(s[1])}</div></div>`).join('')}
+    <div class="actions"><button class="ctl" onclick="comeOut()">← Come back out</button></div>`; return; }
+  const status = n.ghost?'<span class="chip ghost static">Not switched on</span>':n.isRole?`<span class="chip static">role</span>`:n.hat?`<span class="chip static">${esc(n.hat)}</span>`:n.role?`<span class="chip static">${esc(roleById[n.role]?roleById[n.role].name:n.role)}</span>`:n.shared?`<span class="chip static">shared</span>`:`<span class="chip static">${n.surround?'surrounding':n.group==='loop'?'turn loop':n.group==='mem'?'memory':'supporting'}</span>`;
+  const pinned=S.selected===n.id;
+  let content='';
+  if(S.tab==='what') content=`<p class="lede">${n.one||''}</p>${n.what?`<details${pinned?' open':''}><summary>Read more</summary><p>${n.what}</p></details>`:''}${n.steps?`<details><summary>Steps in execution</summary>${n.steps.map((s,j)=>`<div class="step"><div class="no">${j+1}</div><div class="tx"><b>${esc(s[0])}</b> — ${esc(s[1])}</div></div>`).join('')}</details>`:''}`;
+  else content=`<p class="lede">${n.one||''}</p><p>${n.how||''}</p>`;
+  const where=n.isRole?' · network overview':n.inside?' · inside':isNew(n.id)?' · new in this chapter':'';
+  let actions='';
+  if(pinned){
+    if(n.isRole) actions=`<div class="actions"><button class="ctl primary" onclick="openRole('${n.roleId}')">→ See components</button></div>`;
+    else if(n.inside) actions=`<div class="actions"><button class="ctl" onclick="comeOut()">← Come back out</button></div>`;
+    else actions=`<div class="actions">${n.steps?`<button class="ctl" onclick="goInside('${n.id}')">→ Go inside</button>`:''}<button class="ctl" onclick="select(null)">Back</button></div>`;
+  }
+  body.innerHTML=`<div class="eyebrow">${esc(n.code)} · ${pinned?'pinned':'hovering'}${where}</div><h1 class="t">${esc(n.name)}</h1><div class="sub">${status}</div>${content}${actions}`;
+}
+function renderHomePanel(){
+  if(S.tab==='how'){ body.innerHTML=HOW_HTML; return; }
+  if(S.view==='network'){
+    body.innerHTML=`<div class="eyebrow">${esc(TITLE)} · network overview</div><h1 class="t">Network overview</h1>
+    <p class="lede">A fleet of roles, not one machine. Apps talk to RPC nodes; a sequencer produces blocks; a batcher, proposer, and challenger keep Ethereum in the loop.</p>
+    <p>Click a role to see its components on the map. Chapters stay on the rail. Sequencer wraps RPC — a sequencer is an RPC node plus the production extras.</p>
+    <h3 class="sec">Roles</h3><div>${roles.map(r=>`<button class="chip" onclick="openRole('${r.id}')">${esc(r.code)} · ${esc(r.name)}</button>`).join('')}</div>
+    <div class="actions"><button class="ctl primary" onclick="enterE2e(0,null)">Walk the system ▸</button></div>`;
+    return;
+  }
+  const c=CH[S.ch]; const last=S.ch===CH.length-1;
+  const chips = last ? '' : `<h3 class="sec">New in this chapter</h3><div>${c.reveal.map(nodeChip).join('')}</div>`;
+  const nav=`<div class="actions"><button class="ctl" onclick="prevCh()">${S.ch===0?'← Network overview':'◂ Back'}</button><button class="ctl primary" onclick="nextCh()" ${last?'disabled':''}>${S.ch===CH.length-2?'Show the whole system ▸':'Next ▸'}</button></div>`;
+  body.innerHTML=`<div class="eyebrow">Chapter ${S.ch+1} of ${CH.length}</div><h1 class="t">${esc(c.title)}</h1><p class="lede">${c.lede}</p>${c.story}${chips}${nav}
+  ${last?`<h3 class="sec">Decisions locked</h3><ul>${DECISIONS_HTML}</ul>`:''}`;
+}
+document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click',()=>{S.tab=b.dataset.tab;S.selPacket=null;renderPanel();drawPackets();}));
+
+/* ---------------- STATS ---------------- */
+function renderStats(){
+  const el=document.getElementById('stats');
+  const view=S.view==='network'?'network overview':`chapter ${S.ch+1} / ${CH.length}`;
+  const shown=S.view==='world'?`${sceneNodes.length} / ${NODES.length}`:String(sceneNodes.length);
+  const all=[...(STATS||[]), {k:'View',v:view},{k:'On the map',v:shown,grow:true}];
+  el.innerHTML=all.map(s=>`<div class="stat${s.grow?' grow':''}"><div class="k">${s.k}</div><div class="v">${s.v}</div></div>`).join('');
+}
+
+/* ---------------- INDEX + RAIL ---------------- */
+function ixButton(n, opts){
+  const b=document.createElement('button');
+  b.className='ix'+(opts.on?' on':'')+(opts.later?' later':'')+(opts.fresh?' new':'');
+  b.innerHTML=`<span class="swatch" style="background:var(--face-${esc(n.kind||'box')})"></span><span class="code">${esc(n.code)}</span><span class="nm">${esc(n.name)}</span><span class="n">${esc(opts.meta||'')}</span>`;
+  b.addEventListener('click',opts.onClick);
+  if(opts.enter) b.addEventListener('pointerenter',opts.enter);
+  if(opts.leave) b.addEventListener('pointerleave',opts.leave);
+  return b;
+}
+function renderIndex(){
+  const ix=document.getElementById('index'); ix.innerHTML='';
+  if(S.view==='network'){
+    const h=document.createElement('h4'); h.textContent='Roles'; ix.appendChild(h);
+    roles.forEach(r=>{ const n=roleNode(r); ix.appendChild(ixButton(n,{on:S.selected===n.id,meta:'role',onClick:()=>openRole(r.id),enter:()=>setHover(n.id,null,n),leave:()=>setHover(null)})); });
+    const hs=document.createElement('h4'); hs.textContent='Surroundings'; ix.appendChild(hs);
+    NODES.filter(n=>n.surround).forEach(n=>ix.appendChild(ixButton(n,{on:S.selected===n.id,onClick:()=>{select(n.id); focusNode(sceneNodes.find(x=>x.id===n.id)||n);},enter:()=>setHover(n.id),leave:()=>setHover(null)})));
+    renderStats(); return;
+  }
+  const rev=new Set(revealedIds());
+  const addNode=n=>{
+    const shown=rev.has(n.id);
+    ix.appendChild(ixButton(n,{on:S.selected===n.id||S.inside===n.id,later:!shown,fresh:isNew(n.id),meta:shown?'':'ch '+(revealChapterOf(n.id)+1),
+      onClick:()=>{ if(!shown){ gotoCh(revealChapterOf(n.id)); select(n.id); return; } if(S.view!=='world')comeOut(); select(n.id); focusNode(n); },
+      enter:()=>{ if(S.view==='world'&&shown) setHover(n.id); },
+      leave:()=>{ if(S.view==='world') setHover(null); } }));
+  };
+  const sur=NODES.filter(n=>n.surround);
+  if(sur.length){ const hd=document.createElement('h4'); hd.textContent='Surroundings'; ix.appendChild(hd); sur.forEach(addNode); }
+  roles.forEach(r=>{
+    const nodes=NODES.filter(n=>n.role===r.id); if(!nodes.length) return;
+    const hd=document.createElement('h4'); hd.className='rh';
+    hd.innerHTML=`<span class="dot" style="background:var(--hull-${r.id})"></span>${esc(r.name)}${r.contains&&r.contains.includes('rpc')?' · includes rpc':''}`;
+    ix.appendChild(hd); nodes.forEach(addNode);
+  });
+  renderStats();
+}
+function homeBtn(){ return `<button class="home ${S.view==='network'?'on':''}" onclick="goNetwork()">Network Overview</button>`; }
+function chapterBtns(){
+  return CH.map((c,i)=>`<button class="ch ${S.view==='world'&&i===S.ch?'on':S.view==='world'&&i<S.ch?'done':''} ${i>S.maxCh+1?'locked':''}" title="${esc(c.title)}" onclick="gotoCh(${i})">${i+1}</button>`).join('');
+}
+function railTitle(){
+  if(S.view==='inside') return `inside · <b>${esc(byId[S.inside].code)} ${esc(byId[S.inside].name)}</b>`;
+  if(S.view==='network') return `network <b>overview</b>`;
+  return `chapter ${S.ch+1} · <b>${esc(CH[S.ch].title)}</b>`;
+}
+function renderRail(){
+  const r=document.getElementById('rail'); const fs=document.getElementById('flowSel');
+  r.innerHTML=homeBtn()+chapterBtns()+`<span class="title">${railTitle()}</span>`;
+  fs.style.display = S.view==='world'&&S.ch===CH.length-1?'flex':'none';
+  if(!fs.dataset.built){ fs.innerHTML=[...FLOWS.map(f=>`<button data-f="${f.id}">${f.name}</button>`),'<button data-f="both">All flows</button>'].join(''); fs.dataset.built='1'; fs.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{S.flowSel=b.dataset.f;buildWorldScene();initPackets();render();})); }
+  fs.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.f===S.flowSel));
+  syncNavBtns();
+}
+function syncNavBtns(){
+  const back=document.getElementById('btnBack'), next=document.getElementById('btnNext');
+  if(S.view==='network'){ back.disabled=true; next.disabled=false; next.textContent='Walk the system ▸'; }
+  else if(S.view==='inside'){ back.disabled=false; next.disabled=true; back.textContent='◂ Network overview'; next.textContent='Next ▸'; }
+  else { back.disabled=false; next.disabled=S.ch===CH.length-1; back.textContent=S.ch===0?'◂ Network overview':'◂ Back'; next.textContent='Next ▸'; }
+}
+
+/* ---------------- NAV ---------------- */
+function refresh(anim){ buildScene(); initPackets(); S.playing=true; syncFlowBtn(); renderIndex(); render(); renderPanel(); fitView(anim!==false); }
+function select(id){
+  const n=id?sceneNodes.find(x=>x.id===id):null;
+  if(n&&n.isRole){ openRole(n.roleId); return; }
+  S.selected=id; S.selPacket=null; if(id) hideTip(); renderIndex(); renderPanel(); paintSelection();
+}
+function goNetwork(){ S.view='network'; S.inside=null; S.selected=null; S.hover=null; hideTip(); S.tab='what'; refresh(true); }
+function openRole(id){
+  const r=roleById[id]; if(!r) return;
+  enterE2e(CH.length-1, (r.components||[])[0]);
+}
+function enterE2e(ch, focusId){
+  S.view='world'; S.inside=null; S.ch=Math.max(0,Math.min(CH.length-1,ch)); S.maxCh=Math.max(S.maxCh,S.ch); S.selected=null; S.hover=null; hideTip(); S.tab='what'; refresh(true);
+  if(focusId){ const n=sceneNodes.find(x=>x.id===focusId); if(n){ select(focusId); focusNode(n); } }
+}
+function gotoCh(i){ i=Math.max(0,Math.min(CH.length-1,i)); S.view='world'; S.inside=null; S.ch=i; S.maxCh=Math.max(S.maxCh,i); S.selected=null; S.hover=null; hideTip(); S.tab='what'; refresh(true); }
+function nextCh(){ if(S.view==='network'){ enterE2e(0,null); return; } gotoCh(S.ch+1); }
+function prevCh(){ if(S.view==='inside'||(S.view==='world'&&S.ch===0)){ goNetwork(); return; } gotoCh(S.ch-1); }
+function goInside(id){ const n=byId[id]; if(!n||!n.steps)return; S.view='inside'; S.inside=id; buildInsideScene(n); S.selected=sceneNodes[0]?sceneNodes[0].id:null; initPackets(); fitView(true); renderIndex(); render(); renderPanel(); }
+function comeOut(){ const was=S.inside; S.view='world'; S.inside=null; buildWorldScene(); initPackets(); S.selected=was; fitView(true); renderIndex(); render(); renderPanel(); }
+function orderList(){ return sceneNodes.map(n=>n.id); }
+document.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT')return; const L=orderList(); let i=L.indexOf(S.selected);
+  if(e.key==='ArrowDown'){e.preventDefault();select(L[Math.min(L.length-1,i+1)]);}
+  else if(e.key==='ArrowUp'){e.preventDefault();select(L[Math.max(0,i-1)]);}
+  else if(e.key==='ArrowRight'){e.preventDefault(); const n=sceneNodes.find(x=>x.id===S.selected); if(n&&n.isRole) openRole(n.roleId); else if(S.view==='world'&&S.selected) goInside(S.selected);}
+  else if(e.key==='ArrowLeft'){e.preventDefault(); if(S.view==='inside')comeOut(); else if(S.view!=='network') goNetwork(); else select(null);}
+  else if(e.key==='Enter'||e.key===']'){e.preventDefault(); nextCh();}
+  else if(e.key==='['){e.preventDefault(); prevCh();}
+  else if(e.key===' '){e.preventDefault();toggleFlow();}
+  else if(e.key==='Escape'){ if(S.view!=='network'&&!S.selected) goNetwork(); else select(null);} });
+
+/* ---------------- VIEW / PAN / ZOOM ---------------- */
+let tween=null;
+function applyView(){ world.setAttribute('transform',`translate(${S.tx},${S.ty}) scale(${S.k})`); }
+function tweenTick(){ if(!tween)return; const now=performance.now(); let u=Math.min(1,(now-tween.t0)/tween.dur); u=1-Math.pow(1-u,3); S.tx=tween.a.tx+(tween.b.tx-tween.a.tx)*u; S.ty=tween.a.ty+(tween.b.ty-tween.a.ty)*u; S.k=tween.a.k+(tween.b.k-tween.a.k)*u; applyView(); if(u>=1)tween=null; }
+function setView(tx,ty,k,anim){ tween=null; if(anim&&!matchMedia('(prefers-reduced-motion: reduce)').matches){ tween={a:{tx:S.tx,ty:S.ty,k:S.k},b:{tx,ty,k},t0:performance.now(),dur:520}; } else { S.tx=tx;S.ty=ty;S.k=k;applyView(); } }
+function bbox(){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; sceneNodes.forEach(n=>{[P(n.gx,n.gy,n.h),P(n.gx+n.w,n.gy,n.h),P(n.gx+n.w,n.gy+n.d,-24),P(n.gx,n.gy+n.d,0),P(n.gx,n.gy,0)].forEach(p=>{x0=Math.min(x0,p[0]);y0=Math.min(y0,p[1]);x1=Math.max(x1,p[0]);y1=Math.max(y1,p[1]);});}); return {x0,y0,x1,y1}; }
+function fitView(anim){ const r=svg.getBoundingClientRect(); if(!sceneNodes.length)return; const b=bbox(); const pad=40; const k=Math.min((r.width-pad*2)/Math.max(1,b.x1-b.x0),(r.height-pad*2)/Math.max(1,b.y1-b.y0)); if(r.width<80||r.height<80||!isFinite(k)||k<=0)return; const kk=Math.max(.2,Math.min(k,1.5)); setView(r.width/2-((b.x0+b.x1)/2)*kk, r.height/2-((b.y0+b.y1)/2)*kk+8, kk, anim); }
+function focusNode(n){ const r=svg.getBoundingClientRect(); const c=P(n.gx+n.w/2,n.gy+n.d/2,n.h/2); setView(r.width/2-c[0]*S.k, r.height/2-c[1]*S.k, S.k, true); }
+function zoomAt(f,cx,cy){ tween=null; const nk=Math.max(.35,Math.min(3,S.k*f)); S.tx=cx-(cx-S.tx)*(nk/S.k); S.ty=cy-(cy-S.ty)*(nk/S.k); S.k=nk; applyView(); }
+svg.addEventListener('wheel',e=>{e.preventDefault(); const r=svg.getBoundingClientRect(); zoomAt(e.deltaY<0?1.1:0.9,e.clientX-r.left,e.clientY-r.top);},{passive:false});
+let drag=null; svg.addEventListener('pointerdown',e=>{ if(e.button!==0)return; tween=null; drag={x:e.clientX,y:e.clientY,tx:S.tx,ty:S.ty,moved:false,nodeId:nodeIdAt(e.clientX,e.clientY)}; svg.setPointerCapture(e.pointerId); });
+svg.addEventListener('pointermove',e=>{ if(!drag)return; const dx=e.clientX-drag.x,dy=e.clientY-drag.y; if(!drag.moved && Math.hypot(dx,dy)<=6) return; drag.moved=true; svg.classList.add('dragging'); S.tx=drag.tx+dx; S.ty=drag.ty+dy; applyView(); });
+svg.addEventListener('pointerup',e=>{ if(drag&&!drag.moved){ const id=nodeIdAt(e.clientX,e.clientY)||drag.nodeId; if(id) select(id); else if(!e.target.closest?.('g.pkt')) select(null); } drag=null; svg.classList.remove('dragging'); });
+svg.addEventListener('pointerleave',()=>{ if(!drag) setHover(null); });
+document.getElementById('zin').onclick=()=>{const r=svg.getBoundingClientRect();zoomAt(1.2,r.width/2,r.height/2);};
+document.getElementById('zout').onclick=()=>{const r=svg.getBoundingClientRect();zoomAt(1/1.2,r.width/2,r.height/2);};
+window.addEventListener('resize',()=>fitView(false));
+
+/* ---------------- TIP ---------------- */
+function showTip(e,n){ tip.style.display='block'; tip.textContent=n.inside?n.desc:(n.ghost?'Later · ':'')+n.name+' — '+(n.one||'').replace(/<[^>]+>/g,''); moveTip(e); }
+function moveTip(e){ const r=svg.getBoundingClientRect(); let x=e.clientX-r.left+14,y=e.clientY-r.top+14; if(x+290>r.width)x-=300; if(y+60>r.height)y-=70; tip.style.left=x+'px'; tip.style.top=y+'px'; }
+function hideTip(){ tip.style.display='none'; }
+
+/* ---------------- CONTROLS ---------------- */
+function toggleFlow(){ S.playing=!S.playing; if(S.playing)S.selPacket=null; syncFlowBtn(); renderPanel(); drawPackets(); }
+document.getElementById('btnFlow').onclick=toggleFlow;
+document.getElementById('btnStep').onclick=stepOnce;
+document.getElementById('btnReset').onclick=()=>{ select(null); fitView(true); };
+document.getElementById('btnNext').onclick=nextCh; document.getElementById('btnBack').onclick=prevCh;
+
+/* ---------------- BOOT ---------------- */
+goNetwork();
+</script>
